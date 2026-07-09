@@ -1,0 +1,36 @@
+name: Job Radar
+
+on:
+  schedule:
+    - cron: "0 11 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run job check
+        env:
+          ADZUNA_APP_ID: ${{ secrets.ADZUNA_APP_ID }}
+          ADZUNA_APP_KEY: ${{ secrets.ADZUNA_APP_KEY }}
+        run: python job_check.py
+
+      - name: Commit updated dashboard
+        run: |
+          git config user.name "job-radar-bot"
+          git config user.email "actions@github.com"
+          git add docs/index.html seen_jobs.json
+          git commit -m "Update job dashboard ($(date -u +%Y-%m-%d))" || echo "No changes"
+          git push
