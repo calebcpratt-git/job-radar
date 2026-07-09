@@ -1,0 +1,39 @@
+name: Job Radar
+
+on:
+  schedule:
+    # Runs daily. Cron is in UTC — 11:00 UTC ≈ 6–7am US Eastern.
+    # Adjust the hour for your timezone. (GitHub may delay scheduled runs
+    # by a few minutes during busy periods; that's normal.)
+    - cron: "0 11 * * *"
+  workflow_dispatch: {}   # lets you run it manually from the Actions tab
+
+permissions:
+  contents: write         # needed to commit the refreshed dashboard back
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run job check
+        env:
+          ADZUNA_APP_ID: ${{ secrets.ADZUNA_APP_ID }}
+          ADZUNA_APP_KEY: ${{ secrets.ADZUNA_APP_KEY }}
+        run: python job_check.py
+
+      - name: Commit updated dashboard
+        run: |
+          git config user.name "job-radar-bot"
+          git config user.email "actions@github.com"
+          git add docs/index.html seen_jobs.json
+          git commit -m "Update job dashboard ($(date -u +%Y-%m-%d))" || echo "No changes"
+          git push
