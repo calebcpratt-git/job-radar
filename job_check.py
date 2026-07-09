@@ -1,21 +1,22 @@
 #!/usr/bin/env python3
 """
 Job Radar — pulls job postings each morning, filters them to your criteria,
-flags anything new since the last run, and writes an HTML dashboard.
+and writes an HTML dashboard.
 
 Sources:
   - Specific companies via their public ATS boards (Greenhouse / Lever / Ashby)
   - A broad search across job boards via the Adzuna API
+  - A broad search via JSearch (Google for Jobs: LinkedIn, Indeed, Glassdoor, etc.)
 
-Nothing here needs a paid service. The only credentials are a free Adzuna
-app id + key, read from the environment (ADZUNA_APP_ID / ADZUNA_APP_KEY).
+Nothing here needs a paid service. Credentials are free-tier API keys, read
+from the environment (ADZUNA_APP_ID / ADZUNA_APP_KEY, JSEARCH_API_KEY).
 """
 
 import html
-import json
 import os
+import re
 import sys
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from pathlib import Path
 
 import requests
@@ -23,8 +24,24 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent
 CONFIG_PATH = ROOT / "config.yaml"
-SEEN_PATH = ROOT / "seen_jobs.json"
 OUT_PATH = ROOT / "docs" / "index.html"
+ENV_PATH = ROOT / ".env"
+
+
+def _load_dotenv():
+    """Local-dev convenience: fill os.environ from .env without overriding
+    real env vars (e.g. those set by the GitHub Actions workflow)."""
+    if not ENV_PATH.exists():
+        return
+    for line in ENV_PATH.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        os.environ.setdefault(key.strip(), value.strip())
+
+
+_load_dotenv()
 
 HTTP_TIMEOUT = 20
 USER_AGENT = "job-radar/1.0 (personal job search)"
@@ -33,10 +50,11 @@ USER_AGENT = "job-radar/1.0 (personal job search)"
 # --------------------------------------------------------------------------- #
 # Fetching
 # --------------------------------------------------------------------------- #
-def _get(url, params=None):
-    r = requests.get(
-        url, params=params, timeout=HTTP_TIMEOUT, headers={"User-Agent": USER_AGENT}
-    )
+def _get(url, params=None, headers=None):
+    merged_headers = {"User-Agent": USER_AGENT}
+    if headers:
+        merged_headers.update(headers)
+    r = requests.get(url, params=params, timeout=HTTP_TIMEOUT, headers=merged_headers)
     r.raise_for_status()
     return r.json()
 
@@ -168,12 +186,8 @@ def fetch_adzuna(cfg, criteria):
         }
         if criteria.get("location"):
             params["where"] = criteria["location"]
-        if criteria.get("salary_min"):
-            params["salary_min"] = criteria["salary_min"]
         if criteria.get("max_days_old"):
             params["max_days_old"] = criteria["max_days_old"]
-        if cfg.get("what_exclude"):
-            params["what_exclude"] = cfg["what_exclude"]
         try:
             data = _get(f"https://api.adzuna.com/v1/api/jobs/{country}/search/{page}", params=params)
         except Exception as e:
@@ -181,11 +195,17 @@ def fetch_adzuna(cfg, criteria):
             break
         results = data.get("results", [])
         for j in results:
+            loc = j.get("location") or {}
             out.append({
                 "id": f"az:{j.get('id')}",
                 "title": j.get("title", ""),
                 "company": (j.get("company") or {}).get("display_name", ""),
-                "location": (j.get("location") or {}).get("display_name", ""),
+                "location": loc.get("display_name", ""),
+                # Adzuna's display_name is often just a neighborhood (e.g.
+                # "Grand Central, Manhattan"); "area" carries the full
+                # hierarchy up to city/state, which is what location
+                # filtering should match against.
+                "location_area": " ".join(loc.get("area") or []),
                 "url": j.get("redirect_url", ""),
                 "salary_min": j.get("salary_min"),
                 "salary_max": j.get("salary_max"),
@@ -195,6 +215,71 @@ def fetch_adzuna(cfg, criteria):
         if len(results) < per_page:
             break  # no more pages
     print(f"  · Adzuna broad search: {len(out)} postings")
+    return out
+
+
+JSEARCH_URL = "https://api.openwebninja.com/jsearch/search-v2"
+
+
+def fetch_jsearch(cfg, criteria):
+    """Broad search via JSearch (Google for Jobs: LinkedIn, Indeed, etc.)."""
+    api_key = os.environ.get("JSEARCH_API_KEY")
+    if not api_key:
+        print("  ! JSearch key not set (JSEARCH_API_KEY) — skipping broad search",
+              file=sys.stderr)
+        return []
+
+    days = criteria.get("max_days_old")
+    if days is None:
+        date_posted = "all"
+    elif days <= 1:
+        date_posted = "today"
+    elif days <= 3:
+        date_posted = "3days"
+    elif days <= 7:
+        date_posted = "week"
+    else:
+        date_posted = "month"
+
+    out = []
+    for query in cfg.get("queries", []):
+        # search-v2 takes a page *count* (num_pages) and returns that many
+        # pages of results in a single call — it does not take a page
+        # *number*, so one call per query covers cfg["pages"] pages.
+        params = {
+            "query": query,
+            "num_pages": cfg.get("pages", 1),
+            "country": cfg.get("country", "us"),
+            "date_posted": date_posted,
+        }
+        try:
+            data = _get(JSEARCH_URL, params=params, headers={"x-api-key": api_key})
+        except Exception as e:
+            print(f"  ! JSearch query '{query}' failed: {e}", file=sys.stderr)
+            continue
+        # search-v2 nests results under data.jobs (plus a data.cursor for
+        # paging beyond num_pages), unlike the flat list some JSearch docs
+        # describe.
+        results = (data.get("data") or {}).get("jobs") or []
+        for j in results:
+            city = j.get("job_city") or ""
+            state = j.get("job_state") or ""
+            location = ", ".join(p for p in (city, state) if p)
+            if j.get("job_is_remote"):
+                location = (location + " (Remote)").strip()
+            publisher = j.get("job_publisher") or "JSearch"
+            out.append({
+                "id": f"js:{j.get('job_id')}",
+                "title": j.get("job_title") or "",
+                "company": j.get("employer_name") or "",
+                "location": location,
+                "url": j.get("job_apply_link") or j.get("job_google_link") or "",
+                "salary_min": j.get("job_min_salary"),
+                "salary_max": j.get("job_max_salary"),
+                "posted": j.get("job_posted_at_datetime_utc"),
+                "source": f"JSearch ({publisher})",
+            })
+    print(f"  · JSearch broad search: {len(out)} postings")
     return out
 
 
@@ -208,48 +293,30 @@ def looks_remote(text):
 def matches(job, criteria):
     title = (job.get("title") or "").lower()
 
-    any_kw = [k.lower() for k in criteria.get("keywords_any", []) if k.strip()]
-    if any_kw and not any(k in title for k in any_kw):
+    words = set(re.findall(r"[a-z]+", title))
+    if not ("product" in words and ("operations" in words or "ops" in words)):
         return False
-
-    for bad in criteria.get("keywords_exclude", []):
-        if bad.strip() and bad.lower() in title:
-            return False
 
     loc_filter = (criteria.get("location") or "").lower().strip()
     if loc_filter:
         job_loc = (job.get("location") or "").lower()
+        haystack = job_loc + " " + (job.get("location_area") or "").lower()
         remote_ok = criteria.get("remote_ok", True) and looks_remote(job_loc)
-        if loc_filter not in job_loc and not remote_ok:
+        if loc_filter not in haystack and not remote_ok:
             return False
 
-    floor = criteria.get("salary_min")
-    if floor:
-        smax = job.get("salary_max") or job.get("salary_min")
-        # Only exclude when a salary is known AND clearly below the floor.
-        if smax is not None and smax < floor:
-            return False
+    max_days = criteria.get("max_days_old")
+    posted = job.get("posted")
+    if max_days is not None and posted:
+        try:
+            dt = datetime.fromisoformat(posted.replace("Z", "+00:00"))
+            days_old = (datetime.now(timezone.utc) - dt).days
+            if days_old > max_days:
+                return False
+        except Exception:
+            pass  # unparseable date: keep, same as unknown salary
 
     return True
-
-
-# --------------------------------------------------------------------------- #
-# "New since last run" tracking
-# --------------------------------------------------------------------------- #
-def load_seen():
-    if SEEN_PATH.exists():
-        try:
-            return json.loads(SEEN_PATH.read_text())
-        except Exception:
-            return {}
-    return {}
-
-
-def save_seen(seen):
-    # Prune anything first seen more than 60 days ago to keep the file small.
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=60)).isoformat()
-    pruned = {k: v for k, v in seen.items() if v >= cutoff}
-    SEEN_PATH.write_text(json.dumps(pruned, indent=0, sort_keys=True))
 
 
 # --------------------------------------------------------------------------- #
@@ -280,23 +347,21 @@ def fmt_posted(iso):
         return ""
 
 
-def render(jobs, label):
+def render(jobs, label, max_days_old):
     now = datetime.now(timezone.utc).astimezone()
-    new_count = sum(1 for j in jobs if j["is_new"])
 
     rows = []
     for j in jobs:
         salary = fmt_salary(j)
         posted = fmt_posted(j.get("posted"))
-        new_pill = '<span class="pill">new</span>' if j["is_new"] else ""
         meta = " · ".join(x for x in [
             html.escape(j.get("source", "")),
             posted,
         ] if x)
         rows.append(f"""
-        <li class="job{' is-new' if j['is_new'] else ''}" data-new="{str(j['is_new']).lower()}">
+        <li class="job">
           <a class="title" href="{html.escape(j.get('url',''))}" target="_blank" rel="noopener">
-            {html.escape(j.get('title','') or 'Untitled role')}{new_pill}
+            {html.escape(j.get('title','') or 'Untitled role')}
           </a>
           <div class="sub">
             <span class="company">{html.escape(j.get('company','') or '')}</span>
@@ -314,8 +379,7 @@ def render(jobs, label):
         date=now.strftime("%A, %B %-d"),
         updated=now.strftime("%-I:%M %p %Z"),
         total=len(jobs),
-        new_count=new_count,
-        new_word="match" if new_count == 1 else "matches",
+        window_days=max_days_old,
         rows=body,
     )
 
@@ -361,31 +425,14 @@ TEMPLATE = """<!DOCTYPE html>
     font:inherit; font-size:14px; background:var(--surface); color:var(--ink);
   }}
   #q:focus {{ outline:2px solid var(--accent); outline-offset:1px; border-color:transparent; }}
-  .toggle {{
-    font-family:"IBM Plex Mono",monospace; font-size:12px; letter-spacing:0.04em;
-    text-transform:uppercase; color:var(--muted); cursor:pointer;
-    display:flex; align-items:center; gap:7px; user-select:none; white-space:nowrap;
-  }}
-  .toggle input {{ accent-color:var(--signal); width:15px; height:15px; }}
   ul {{ list-style:none; margin:8px 0 0; padding:0; }}
   .job {{ padding:20px 0 18px; border-bottom:1px solid var(--line); }}
-  .job.is-new {{
-    margin:0 -16px; padding:18px 16px 16px; border-bottom:1px solid var(--line);
-    background:linear-gradient(90deg,var(--signal-bg),transparent 62%);
-    border-left:3px solid var(--signal);
-  }}
   .title {{
     font-family:"Space Grotesk",sans-serif; font-weight:500; font-size:19px;
     color:var(--ink); text-decoration:none; letter-spacing:-0.01em;
     display:inline-flex; align-items:center; gap:10px;
   }}
   .title:hover {{ color:var(--accent); }}
-  .pill {{
-    font-family:"IBM Plex Mono",monospace; font-size:10px; font-weight:500;
-    letter-spacing:0.1em; text-transform:uppercase; color:var(--signal);
-    background:var(--signal-bg); border:1px solid #EAD6AE;
-    padding:2px 7px; border-radius:999px;
-  }}
   .sub {{ margin:6px 0 4px; font-size:14.5px; color:#3A424C; display:flex; flex-wrap:wrap; gap:4px 14px; }}
   .sub .company {{ font-weight:600; }}
   .sub .salary {{ color:var(--accent); font-weight:500; }}
@@ -410,15 +457,13 @@ TEMPLATE = """<!DOCTYPE html>
       <p class="eyebrow">Morning brief · {date}</p>
       <h1>{label}</h1>
       <div class="status">
-        <span class="hot">{new_count} new {new_word}</span>
-        <span>{total} total on the board</span>
+        <span class="hot">{total} matches · last {window_days} days</span>
         <span>updated {updated}</span>
       </div>
     </header>
 
     <div class="controls">
       <input id="q" type="text" placeholder="Filter by title, company, or location…" aria-label="Filter jobs">
-      <label class="toggle"><input type="checkbox" id="newonly"> new only</label>
     </div>
 
     <ul id="list">
@@ -430,19 +475,15 @@ TEMPLATE = """<!DOCTYPE html>
 
 <script>
   const q = document.getElementById('q');
-  const newonly = document.getElementById('newonly');
   const items = Array.from(document.querySelectorAll('#list .job'));
   function apply() {{
     const term = q.value.trim().toLowerCase();
-    const onlyNew = newonly.checked;
     items.forEach(el => {{
       const hitText = !term || el.textContent.toLowerCase().includes(term);
-      const hitNew = !onlyNew || el.dataset.new === 'true';
-      el.style.display = (hitText && hitNew) ? '' : 'none';
+      el.style.display = hitText ? '' : 'none';
     }});
   }}
   q.addEventListener('input', apply);
-  newonly.addEventListener('change', apply);
 </script>
 </body>
 </html>"""
@@ -454,26 +495,27 @@ TEMPLATE = """<!DOCTYPE html>
 def main():
     cfg = yaml.safe_load(CONFIG_PATH.read_text())
     criteria = {
-        "keywords_any": cfg.get("keywords_any", []),
-        "keywords_exclude": cfg.get("keywords_exclude", []),
         "location": cfg.get("location", ""),
         "remote_ok": cfg.get("remote_ok", True),
-        "salary_min": cfg.get("salary_min"),
         "max_days_old": cfg.get("max_days_old"),
     }
 
-    print("Fetching company boards…")
-    raw = fetch_companies(cfg.get("companies", []))
+    raw = []
 
     adz = cfg.get("adzuna", {})
     if adz.get("enabled"):
-        print("Fetching broad search…")
+        print("Fetching broad search (Adzuna)…")
         raw += fetch_adzuna(adz, criteria)
+
+    js = cfg.get("jsearch", {})
+    if js.get("enabled"):
+        print("Fetching broad search (JSearch)…")
+        raw += fetch_jsearch(js, criteria)
 
     # Filter
     kept = [j for j in raw if matches(j, criteria)]
 
-    # Dedupe (prefer first occurrence; ATS boards win over Adzuna duplicates)
+    # Dedupe (prefer first occurrence; ATS boards win over aggregator duplicates)
     seen_ids, deduped = set(), []
     for j in kept:
         key = j.get("id") or j.get("url")
@@ -482,26 +524,27 @@ def main():
         seen_ids.add(key)
         deduped.append(j)
 
-    # Flag new vs. previously seen
-    seen = load_seen()
-    now_iso = datetime.now(timezone.utc).isoformat()
+    # Second-pass dedupe: the same posting can come back from multiple
+    # aggregators (or from both a company's ATS board and an aggregator)
+    # under different ids/urls. Drop later duplicates by normalized
+    # (title, company) so the earlier — i.e. higher-priority — source wins.
+    seen_pairs, cross_deduped = set(), []
     for j in deduped:
-        key = j["id"]
-        j["is_new"] = key not in seen
-        seen.setdefault(key, now_iso)
-    save_seen(seen)
+        pair = ((j.get("title") or "").lower().strip(), (j.get("company") or "").lower().strip())
+        if pair in seen_pairs:
+            continue
+        seen_pairs.add(pair)
+        cross_deduped.append(j)
+    deduped = cross_deduped
 
-    # Sort: new first, then most recently posted
-    deduped.sort(key=lambda j: (not j["is_new"], j.get("posted") or ""), reverse=False)
+    # Sort: most recently posted first (jobs with no date sort last).
     deduped.sort(key=lambda j: j.get("posted") or "", reverse=True)
-    deduped.sort(key=lambda j: not j["is_new"])
 
     label = cfg.get("label", "Job Radar")
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    OUT_PATH.write_text(render(deduped, label))
+    OUT_PATH.write_text(render(deduped, label, criteria.get("max_days_old")))
 
-    new_n = sum(1 for j in deduped if j["is_new"])
-    print(f"\nDone: {len(deduped)} matches ({new_n} new). Dashboard → {OUT_PATH}")
+    print(f"\nDone: {len(deduped)} matches. Dashboard → {OUT_PATH}")
 
 
 if __name__ == "__main__":
