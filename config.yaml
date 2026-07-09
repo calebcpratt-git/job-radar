@@ -7,7 +7,7 @@ label: "Product Operations — NYC"
 
 location: "New York"
 remote_ok: true
-max_days_old: 5
+max_days_old: 30
 
 # Broad search across job boards (Adzuna).
 adzuna:
@@ -28,3 +28,26 @@ jsearch:
     - "product operations in new york"
   pages: 1            # pages of results per query, returned in one call
   country: "us"
+
+# Keep a posting only if its description mentions at least one of these
+# (case-insensitive). Filters out physical-product ops (manufacturing,
+# CPG, logistics) in favor of software/digital product roles.
+# Jobs with no description available are kept.
+digital_signals:
+  - software
+  - saas
+  - platform
+  - app
+  - api
+  - digital
+  - internal tools
+  - internal tooling
+  - engineering
+  - product manager
+  - product management
+  - roadmap
+  - agile
+  - sprint
+  - cross-functional
+  - user experience
+  - ux

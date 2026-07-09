@@ -210,6 +210,7 @@ def fetch_adzuna(cfg, criteria):
                 "salary_min": j.get("salary_min"),
                 "salary_max": j.get("salary_max"),
                 "posted": j.get("created"),
+                "description": j.get("description") or "",
                 "source": "adzuna",
             })
         if len(results) < per_page:
@@ -277,6 +278,7 @@ def fetch_jsearch(cfg, criteria):
                 "salary_min": j.get("job_min_salary"),
                 "salary_max": j.get("job_max_salary"),
                 "posted": j.get("job_posted_at_datetime_utc"),
+                "description": j.get("job_description") or "",
                 "source": f"JSearch ({publisher})",
             })
     print(f"  · JSearch broad search: {len(out)} postings")
@@ -296,6 +298,12 @@ def matches(job, criteria):
     words = set(re.findall(r"[a-z]+", title))
     if not ("product" in words and ("operations" in words or "ops" in words)):
         return False
+
+    signals = criteria.get("digital_signals")
+    if signals:
+        desc = (job.get("description") or "").lower()
+        if desc and not any(s.lower() in desc for s in signals):
+            return False
 
     loc_filter = (criteria.get("location") or "").lower().strip()
     if loc_filter:
@@ -498,6 +506,7 @@ def main():
         "location": cfg.get("location", ""),
         "remote_ok": cfg.get("remote_ok", True),
         "max_days_old": cfg.get("max_days_old"),
+        "digital_signals": cfg.get("digital_signals") or [],
     }
 
     raw = []
