@@ -26,7 +26,7 @@ jsearch:
   enabled: true
   queries:
     - "product operations in new york"
-  pages: 1            # pages of results per query, returned in one call
+  pages: 10           # pages of results per query, returned in one call
   country: "us"
 
 # Keep a posting only if its description mentions at least one of these
@@ -51,3 +51,16 @@ digital_signals:
   - cross-functional
   - user experience
   - ux
+
+# Title filter: a job passes if its title matches ANY rule below.
+# A rule matches when ALL of its words appear in the title as whole
+# words (case-insensitive). The first two rules reproduce the previous
+# hardcoded behavior; add/remove lines to broaden or narrow the search.
+title_rules:
+  - [product, operations]
+  - [product, ops]
+  - [platform, operations]
+  - [business, operations]
+  - [strategy, operations]
+  - [revenue, operations]
+  - [product, analyst]

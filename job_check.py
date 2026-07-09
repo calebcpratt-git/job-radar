@@ -296,7 +296,20 @@ def matches(job, criteria):
     title = (job.get("title") or "").lower()
 
     words = set(re.findall(r"[a-z]+", title))
-    if not ("product" in words and ("operations" in words or "ops" in words)):
+
+    rules = criteria.get("title_rules") or []
+    if rules:
+        title_ok = False
+        for rule in rules:
+            rule_words = []
+            for w in rule:
+                rule_words.extend(str(w).lower().split())
+            if rule_words and all(w in words for w in rule_words):
+                title_ok = True
+                break
+        if not title_ok:
+            return False
+    elif not ("product" in words and ("operations" in words or "ops" in words)):
         return False
 
     signals = criteria.get("digital_signals")
@@ -507,6 +520,7 @@ def main():
         "remote_ok": cfg.get("remote_ok", True),
         "max_days_old": cfg.get("max_days_old"),
         "digital_signals": cfg.get("digital_signals") or [],
+        "title_rules": cfg.get("title_rules") or [],
     }
 
     raw = []
