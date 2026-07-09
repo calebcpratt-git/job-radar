@@ -39,31 +39,14 @@
     font:inherit; font-size:14px; background:var(--surface); color:var(--ink);
   }
   #q:focus { outline:2px solid var(--accent); outline-offset:1px; border-color:transparent; }
-  .toggle {
-    font-family:"IBM Plex Mono",monospace; font-size:12px; letter-spacing:0.04em;
-    text-transform:uppercase; color:var(--muted); cursor:pointer;
-    display:flex; align-items:center; gap:7px; user-select:none; white-space:nowrap;
-  }
-  .toggle input { accent-color:var(--signal); width:15px; height:15px; }
   ul { list-style:none; margin:8px 0 0; padding:0; }
   .job { padding:20px 0 18px; border-bottom:1px solid var(--line); }
-  .job.is-new {
-    margin:0 -16px; padding:18px 16px 16px; border-bottom:1px solid var(--line);
-    background:linear-gradient(90deg,var(--signal-bg),transparent 62%);
-    border-left:3px solid var(--signal);
-  }
   .title {
     font-family:"Space Grotesk",sans-serif; font-weight:500; font-size:19px;
     color:var(--ink); text-decoration:none; letter-spacing:-0.01em;
     display:inline-flex; align-items:center; gap:10px;
   }
   .title:hover { color:var(--accent); }
-  .pill {
-    font-family:"IBM Plex Mono",monospace; font-size:10px; font-weight:500;
-    letter-spacing:0.1em; text-transform:uppercase; color:var(--signal);
-    background:var(--signal-bg); border:1px solid #EAD6AE;
-    padding:2px 7px; border-radius:999px;
-  }
   .sub { margin:6px 0 4px; font-size:14.5px; color:#3A424C; display:flex; flex-wrap:wrap; gap:4px 14px; }
   .sub .company { font-weight:600; }
   .sub .salary { color:var(--accent); font-weight:500; }
@@ -88,19 +71,88 @@
       <p class="eyebrow">Morning brief · Thursday, July 9</p>
       <h1>Product Operations — NYC</h1>
       <div class="status">
-        <span class="hot">0 new matches</span>
-        <span>0 total on the board</span>
-        <span>updated 5:14 PM UTC</span>
+        <span class="hot">6 matches · last 5 days</span>
+        <span>updated 4:00 PM EDT</span>
       </div>
     </header>
 
     <div class="controls">
       <input id="q" type="text" placeholder="Filter by title, company, or location…" aria-label="Filter jobs">
-      <label class="toggle"><input type="checkbox" id="newonly"> new only</label>
     </div>
 
     <ul id="list">
-      <li class="empty">No matches today. The wire is quiet — check back tomorrow.</li>
+      
+        <li class="job">
+          <a class="title" href="https://salutemyjob.com/jobs/product-operations-associate-media-data-campaign-insights-new-york/2867929335-2/" target="_blank" rel="noopener">
+            Product Operations Associate Media Data &amp; Campaign Insights
+          </a>
+          <div class="sub">
+            <span class="company">Dormont Manufacturing Company</span>
+            <span class="loc">New York, New York</span>
+            
+          </div>
+          <div class="meta">JSearch (SaluteMyJob) · today</div>
+        </li>
+
+        <li class="job">
+          <a class="title" href="https://www.jobleads.com/us/job/product-operations-lead-scale-planning-cadences-ai--new-york--e512e17eb849233aea8ba3a690d116930" target="_blank" rel="noopener">
+            Product Operations Lead: Scale Planning, Cadences &amp; AI
+          </a>
+          <div class="sub">
+            <span class="company">Stellar Development Foundation</span>
+            <span class="loc">New York, New York</span>
+            <span class="salary">$170,000–$245,000</span>
+          </div>
+          <div class="meta">JSearch (JobLeads) · 2 days ago</div>
+        </li>
+
+        <li class="job">
+          <a class="title" href="https://jobs.ashbyhq.com/ramp/9226150c-47df-42f4-8626-7a0aea6b9991" target="_blank" rel="noopener">
+            Product Operations Specialist | Bill Pay
+          </a>
+          <div class="sub">
+            <span class="company">Ramp</span>
+            <span class="loc">(Remote)</span>
+            <span class="salary">$128,000–$180,000</span>
+          </div>
+          <div class="meta">JSearch (Jobs) · 3 days ago</div>
+        </li>
+
+        <li class="job">
+          <a class="title" href="https://www.capitalonecareers.com/job/mclean/associate-product-operations-flights-inventory/1732/97488221584" target="_blank" rel="noopener">
+            Associate - Product Operations, Flights Inventory
+          </a>
+          <div class="sub">
+            <span class="company">Capital One</span>
+            <span class="loc">New York, New York</span>
+            
+          </div>
+          <div class="meta">JSearch (Capital One Career) · 3 days ago</div>
+        </li>
+
+        <li class="job">
+          <a class="title" href="https://www.theladders.com/job/sr-product-strategy-and-operations-manager-i-clinical-solutions-relxgroup-new-york-ny_87610005" target="_blank" rel="noopener">
+            Sr. Product Strategy and Operations Manager I , Clinical Solutions
+          </a>
+          <div class="sub">
+            <span class="company">Relx Group</span>
+            <span class="loc">New York, New York</span>
+            <span class="salary">$115,000–$192,000</span>
+          </div>
+          <div class="meta">JSearch (Ladders) · 4 days ago</div>
+        </li>
+
+        <li class="job">
+          <a class="title" href="https://www.ziprecruiter.com/c/PermitFlow/Job/Product-Operations-Manager/-in-New-York,NY?jid=2f2cb8db9b5c85d7" target="_blank" rel="noopener">
+            Product Operations Manager
+          </a>
+          <div class="sub">
+            <span class="company">PermitFlow</span>
+            <span class="loc">New York, New York</span>
+            <span class="salary">$120,000–$170,000</span>
+          </div>
+          <div class="meta">JSearch (ZipRecruiter) · 4 days ago</div>
+        </li>
     </ul>
 
     <footer>Job Radar · pulls from your named company boards + a broad Adzuna search, once each morning.</footer>
@@ -108,19 +160,15 @@
 
 <script>
   const q = document.getElementById('q');
-  const newonly = document.getElementById('newonly');
   const items = Array.from(document.querySelectorAll('#list .job'));
   function apply() {
     const term = q.value.trim().toLowerCase();
-    const onlyNew = newonly.checked;
     items.forEach(el => {
       const hitText = !term || el.textContent.toLowerCase().includes(term);
-      const hitNew = !onlyNew || el.dataset.new === 'true';
-      el.style.display = (hitText && hitNew) ? '' : 'none';
+      el.style.display = hitText ? '' : 'none';
     });
   }
   q.addEventListener('input', apply);
-  newonly.addEventListener('change', apply);
 </script>
 </body>
 </html>

@@ -5,32 +5,8 @@
 
 label: "Product Operations — NYC"
 
-# Keep a role only if its title contains one of these.
-keywords_any:
-  - "product operations"
-  - "product ops"
-
-# Drop senior titles (outside the 1–5 yr band) and the retail / physical-goods
-# "product operations" noise (SKU / merchandising / manufacturing), which is a
-# different job that shares the name.
-keywords_exclude:
-  - "intern"
-  - "senior manager"
-  - "director"
-  - "vp"
-  - "vice president"
-  - "principal"
-  - "head of"
-  - "sku"
-  - "merchandising"
-  - "manufacturing"
-  - "warehouse"
-  - "supply chain"
-
 location: "New York"
 remote_ok: true
-salary_min: 60000        # low floor — associate roles start here; roles with
-                         # no listed salary are kept regardless
 max_days_old: 5
 
 # Broad search across job boards (Adzuna).
@@ -38,23 +14,17 @@ adzuna:
   enabled: true
   country: "us"
   what_or: "product operations"
-  what_exclude: "sku merchandising manufacturing warehouse retail intern director"
   results_per_page: 50
   pages: 2
 
-# Named companies from the preliminary search. TOKENS NOT YET VERIFIED —
-# open each careers URL and confirm the slug (see README table). The broad
-# Adzuna search above will surface these companies' roles even if a token is off.
-companies:
-  - name: "Paxos"          # fintech/blockchain — verify at boards.greenhouse.io/… or jobs.ashbyhq.com/…
-    ats: "greenhouse"
-    token: "paxos"
-  - name: "Valon"          # a16z-backed mortgage-servicing (AI-native)
-    ats: "greenhouse"
-    token: "valon"
-  - name: "Maybern"        # fund-management software startup
-    ats: "ashby"
-    token: "maybern"
-  - name: "Loop"           # verify ATS + slug
-    ats: "greenhouse"
-    token: "loop"
+# Broad search via JSearch (Google for Jobs — surfaces LinkedIn, Indeed,
+# Glassdoor, etc). Free tier is ~200 calls/month. Each query is 1 API call
+# regardless of `pages` (the API bundles that many pages of results into
+# one response) — so call cost scales with the number of queries, not
+# pages. Keep the query list short; one daily run = len(queries) calls.
+jsearch:
+  enabled: true
+  queries:
+    - "product operations in new york"
+  pages: 1            # pages of results per query, returned in one call
+  country: "us"
