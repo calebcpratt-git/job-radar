@@ -510,6 +510,33 @@ TEMPLATE = """<!DOCTYPE html>
 </html>"""
 
 
+STALE_BANNER_RE = re.compile(r'\s*<div id="stale-banner".*?</div>', re.DOTALL)
+
+def mark_dashboard_stale():
+    """Inject a warning banner into the existing dashboard (if any) so the
+    page itself says today's search failed, while keeping the last good
+    results visible. Idempotent: replaces any previous banner. On the next
+    successful run render() overwrites the whole file, removing the banner."""
+    if not OUT_PATH.exists():
+        return
+    page = STALE_BANNER_RE.sub("", OUT_PATH.read_text())
+    now = datetime.now(timezone.utc)
+    today = f"{now.strftime('%B')} {now.day}, {now.year}"
+    banner = (
+        '\n<div id="stale-banner" style="margin:16px auto 0;max-width:760px;'
+        'padding:12px 16px;border:1px solid #b45309;border-radius:8px;'
+        'background:#451a03;color:#fbbf24;font-family:sans-serif;'
+        'font-size:14px;line-height:1.5;">'
+        f"&#9888;&#65039; <strong>Today&rsquo;s search ({today}) failed</strong> "
+        "&mdash; no postings were returned from any source, so the jobs below "
+        "are from the last successful run. Re-run the <em>Job Radar</em> "
+        "workflow from the repo&rsquo;s Actions tab (Run workflow) to refresh."
+        "</div>"
+    )
+    page = re.sub(r"(<body[^>]*>)", r"\1" + banner.replace("\\", "\\\\"), page, count=1)
+    OUT_PATH.write_text(page)
+
+
 # --------------------------------------------------------------------------- #
 # Main
 # --------------------------------------------------------------------------- #
@@ -534,6 +561,21 @@ def main():
     if js.get("enabled"):
         print("Fetching broad search (JSearch)…")
         raw += fetch_jsearch(js, criteria)
+
+    # Guard: if every source came back empty, something upstream failed
+    # (rate limit, expired key, API change). Don't publish a blank
+    # dashboard — flag the existing one as stale and fail the run so the
+    # workflow shows red and GitHub sends a failure notification.
+    if not raw:
+        print(
+            "\nERROR: no postings returned from ANY source — today's search "
+            "failed.\nThe dashboard was NOT overwritten (a stale-data banner "
+            "was added instead).\nCheck the fetch warnings above, then re-run "
+            "this workflow from the Actions tab.",
+            file=sys.stderr,
+        )
+        mark_dashboard_stale()
+        sys.exit(1)
 
     # Filter
     kept = [j for j in raw if matches(j, criteria)]
