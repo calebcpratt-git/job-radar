@@ -29,6 +29,10 @@ jobs:
         run: python job_check.py
 
       - name: Commit updated dashboard
+        # Runs even if "Run job check" failed, so a stale-data banner (added
+        # by mark_dashboard_stale() when every source returns empty) still
+        # gets published — while the job itself still shows red on failure.
+        if: always()
         run: |
           git config user.name "job-radar-bot"
           git config user.email "actions@github.com"
