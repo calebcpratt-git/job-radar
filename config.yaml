@@ -9,24 +9,32 @@ location: "New York"
 remote_ok: true
 max_days_old: 30
 
-# Broad search across job boards (Adzuna).
+# Named companies tracked via their public ATS boards (Ashby, Workable,
+# Greenhouse, Lever, Rippling, Gem, Work at a Startup). Company list and ATS
+# type live in ats_map.csv, not here — see ats_fetch.py. `csv` lets you point
+# at a different file; omit it to use ats_map.csv in the repo root.
+ats_map:
+  enabled: true
+  # csv: "ats_map.csv"
+
+# Broad search across job boards (Adzuna). `what_or` (the server-side
+# keyword search) is no longer set here — job_check.py derives it from
+# title_rules below, so the two never drift out of sync.
 adzuna:
   enabled: true
   country: "us"
-  what_or: "product operations"
   results_per_page: 50
   pages: 2
 
 # Broad search via JSearch (Google for Jobs — surfaces LinkedIn, Indeed,
-# Glassdoor, etc). Free tier is ~200 calls/month. Each query is 1 API call
-# regardless of `pages` (the API bundles that many pages of results into
-# one response) — so call cost scales with the number of queries, not
-# pages. Keep the query list short; one daily run = len(queries) calls.
+# Glassdoor, etc). Free tier is ~200 calls/month. The search query is no
+# longer set here either — job_check.py builds one combined OR query from
+# title_rules below (plus `location` above), so it's always one API call
+# per run regardless of how many title_rules exist. `pages` is the only
+# knob that changes call cost, since it's bundled into that single call.
 jsearch:
   enabled: true
-  queries:
-    - "product operations in new york"
-  pages: 10           # pages of results per query, returned in one call
+  pages: 50           # pages of results per query, returned in one call
   country: "us"
 
 # Keep a posting only if its description mentions at least one of these
@@ -54,9 +62,11 @@ digital_signals:
 
 # Title filter: a job passes if its title matches ANY rule below.
 # A rule matches when ALL of its words appear in the title as whole
-# words (case-insensitive). The first two rules reproduce the previous
-# hardcoded behavior; add/remove lines to broaden or narrow the search.
+# words (case-insensitive). A single-word rule (e.g. [implementation],
+# [bizops]) matches on that word alone, so it casts a much wider net
+# than a two-word AND rule — expect more noise from those specifically.
 title_rules:
+  # existing
   - [product, operations]
   - [product, ops]
   - [platform, operations]
@@ -64,3 +74,35 @@ title_rules:
   - [strategy, operations]
   - [revenue, operations]
   - [product, analyst]
+  # product strategy & analytics
+  - [product, strategy]
+  - [product, analytics]
+  - [product, specialist]
+  # deployment / forward-deployed
+  - [deployment, strategist]
+  - [deployment, manager]
+  - [deployment, associate]
+  - [deployment, specialist]
+  - [deployment, lead]
+  - [forward, deployed]
+  - [deployed, intelligence]
+  # implementation
+  - [implementation]
+  # customer success & post-sale
+  - [customer, success]
+  - [customer, operations]
+  - [onboarding, manager]
+  - [onboarding, specialist]
+  - [engagement, manager]
+  - [engagement, associate]
+  # solutions (non-engineering variants)
+  - [solutions, consultant]
+  - [solutions, associate]
+  - [solutions, specialist]
+  # generalist ops
+  - [gtm, operations]
+  - [gtm, ops]
+  - [sales, operations]
+  - [growth, operations]
+  - [bizops]
+  - [chief, staff]

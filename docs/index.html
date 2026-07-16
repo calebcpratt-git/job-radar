@@ -18,7 +18,7 @@
     font-family:"Inter",system-ui,sans-serif; line-height:1.5;
     -webkit-font-smoothing:antialiased;
   }
-  .wrap { max-width:760px; margin:0 auto; padding:48px 24px 96px; }
+  .wrap { max-width:980px; margin:0 auto; padding:48px 24px 96px; }
   header { border-bottom:1px solid var(--line); padding-bottom:24px; margin-bottom:8px; }
   .eyebrow {
     font-family:"IBM Plex Mono",monospace; font-size:12px; letter-spacing:0.12em;
@@ -33,13 +33,28 @@
     display:flex; flex-wrap:wrap; gap:6px 16px; align-items:center;
   }
   .status .hot { color:var(--signal); font-weight:500; }
-  .controls { display:flex; gap:12px; align-items:center; margin:22px 0 6px; }
+  .tabs { display:flex; gap:0; margin:24px 0 0; border-bottom:1px solid var(--line); }
+  .tab {
+    font:inherit; font-family:"Space Grotesk",sans-serif; font-weight:500; font-size:14.5px;
+    background:none; border:none; border-bottom:2px solid transparent; color:var(--muted);
+    padding:10px 4px 12px; margin-right:24px; cursor:pointer;
+    display:flex; align-items:center; gap:8px;
+  }
+  .tab:hover { color:var(--ink); }
+  .tab.active { color:var(--ink); border-bottom-color:var(--accent); }
+  .tab .count {
+    font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--muted);
+    background:var(--bg); border:1px solid var(--line); border-radius:999px; padding:1px 7px;
+  }
+  .tab.active .count { color:var(--accent); border-color:var(--accent); }
+  .controls { display:flex; gap:12px; align-items:center; margin:16px 0 6px; }
   #q {
     flex:1; padding:9px 12px; border:1px solid var(--line); border-radius:8px;
     font:inherit; font-size:14px; background:var(--surface); color:var(--ink);
   }
   #q:focus { outline:2px solid var(--accent); outline-offset:1px; border-color:transparent; }
   ul { list-style:none; margin:8px 0 0; padding:0; }
+  .job-list[hidden] { display:none; }
   .job { padding:20px 0 18px; border-bottom:1px solid var(--line); }
   .title {
     font-family:"Space Grotesk",sans-serif; font-weight:500; font-size:19px;
@@ -63,220 +78,1239 @@
     .job { animation:rise .4s ease both; }
     @keyframes rise { from { opacity:0; transform:translateY(6px); } }
   }
+  .layout { display:flex; gap:32px; align-items:flex-start; margin-top:20px; }
+  .sidebar { flex:0 0 220px; width:220px; }
+  .main { flex:1; min-width:0; }
+  @media (max-width:760px) {
+    .layout { flex-direction:column; }
+    .sidebar { width:100%; flex:0 0 auto; }
+  }
+  .date-filter-group { display:flex; align-items:center; gap:8px; }
+  .date-filter-label {
+    font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--muted);
+    white-space:nowrap;
+  }
+  #date-filter {
+    padding:8px 10px; border:1px solid var(--line); border-radius:8px;
+    font:inherit; font-family:"Inter",system-ui,sans-serif; font-size:14px;
+    background:var(--surface); color:var(--ink); cursor:pointer;
+  }
+  #date-filter:focus { outline:2px solid var(--accent); outline-offset:1px; border-color:transparent; }
+  .company-filter {
+    border:1px solid var(--line); border-radius:8px; background:var(--surface);
+    padding:14px;
+  }
+  .company-filter h2 {
+    font-family:"Space Grotesk",sans-serif; font-weight:500; font-size:13px;
+    letter-spacing:0.04em; text-transform:uppercase; color:var(--muted);
+    margin:0 0 10px;
+  }
+  .company-filter-list {
+    max-height:310px; overflow-y:auto; border:1px solid var(--line);
+    border-radius:6px; background:var(--bg); padding:6px 8px;
+  }
+  .company-filter-row {
+    display:flex; align-items:center; gap:8px; padding:6px 4px;
+    font-size:13.5px; line-height:1.3; color:var(--ink);
+  }
+  .company-filter-row input { margin:0; accent-color:var(--accent); cursor:pointer; }
+  .company-filter-row label {
+    cursor:pointer; flex:1; min-width:0; overflow:hidden;
+    text-overflow:ellipsis; white-space:nowrap;
+  }
+  .company-filter-empty {
+    font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--muted);
+    padding:4px 2px;
+  }
 </style>
 </head>
 <body>
   <div class="wrap">
     <header>
-      <p class="eyebrow">Morning brief · Tuesday, July 14</p>
+      <p class="eyebrow">Morning brief · Thursday, July 16</p>
       <h1>Product Operations — NYC</h1>
       <div class="status">
-        <span class="hot">15 matches · last 30 days</span>
-        <span>updated 12:47 PM EDT</span>
+        <span class="hot">86 matches · last 30 days</span>
+        <span>updated 5:08 PM EDT</span>
       </div>
     </header>
 
-    <div class="controls">
-      <input id="q" type="text" placeholder="Filter by title, company, or location…" aria-label="Filter jobs">
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="company-filter">
+          <h2>Companies</h2>
+          <div id="company-filter-list" class="company-filter-list">
+            <p class="company-filter-empty">Loading…</p>
+          </div>
+        </div>
+      </aside>
+
+      <div class="main">
+        <div class="tabs" role="tablist">
+          <button class="tab active" data-tab="target" role="tab" aria-selected="true">
+            Target Companies <span class="count">83</span>
+          </button>
+          <button class="tab" data-tab="other" role="tab" aria-selected="false">
+            Other Postings <span class="count">3</span>
+          </button>
+        </div>
+
+        <div class="controls">
+          <input id="q" type="text" placeholder="Filter by title, company, or location…" aria-label="Filter jobs">
+          <div class="date-filter-group">
+            <label class="date-filter-label" for="date-filter">Posted since</label>
+            <input type="date" id="date-filter" max="2026-07-16" aria-label="Show postings since this date">
+          </div>
+        </div>
+
+        <ul id="list-target" class="job-list">
+          
+        <li class="job" data-company="openai" data-posted-date="2026-07-16">
+          <a class="title" href="https://jobs.ashbyhq.com/openai/0b80474f-6438-4b41-94e4-0e653c7e3457" target="_blank" rel="noopener">
+            Customer Success Manager - Ads Solutions
+          </a>
+          <div class="sub">
+            <span class="company">OpenAI</span>
+            <span class="loc">Dublin, Ireland (Remote)</span>
+            
+          </div>
+          <div class="meta">ashby · today</div>
+        </li>
+
+        <li class="job" data-company="smarterdx" data-posted-date="2026-07-16">
+          <a class="title" href="https://job-boards.greenhouse.io/smarterdx/jobs/5188125007" target="_blank" rel="noopener">
+            Senior Manager, Customer Success (SmarterNotes)
+          </a>
+          <div class="sub">
+            <span class="company">SmarterDx</span>
+            <span class="loc">Remote (United States)</span>
+            
+          </div>
+          <div class="meta">greenhouse · today</div>
+        </li>
+
+        <li class="job" data-company="smarterdx" data-posted-date="2026-07-16">
+          <a class="title" href="https://job-boards.greenhouse.io/smarterdx/jobs/5188898007" target="_blank" rel="noopener">
+            Senior Support Analyst, Customer Success Operations
+          </a>
+          <div class="sub">
+            <span class="company">SmarterDx</span>
+            <span class="loc">Remote (United States)</span>
+            
+          </div>
+          <div class="meta">greenhouse · today</div>
+        </li>
+
+        <li class="job" data-company="alphasense" data-posted-date="2026-07-16">
+          <a class="title" href="https://job-boards.greenhouse.io/alphasense/jobs/8585343002" target="_blank" rel="noopener">
+            Accounts Receivable Client Onboarding And Customer Specialist
+          </a>
+          <div class="sub">
+            <span class="company">AlphaSense</span>
+            <span class="loc">Remote - India</span>
+            
+          </div>
+          <div class="meta">greenhouse · today</div>
+        </li>
+
+        <li class="job" data-company="alphasense" data-posted-date="2026-07-16">
+          <a class="title" href="https://job-boards.greenhouse.io/alphasense/jobs/8191964002" target="_blank" rel="noopener">
+            Customer Success Manager, Corporate
+          </a>
+          <div class="sub">
+            <span class="company">AlphaSense</span>
+            <span class="loc">Chicago; New York, New York, United States</span>
+            
+          </div>
+          <div class="meta">greenhouse · today</div>
+        </li>
+
+        <li class="job" data-company="alphasense" data-posted-date="2026-07-16">
+          <a class="title" href="https://job-boards.greenhouse.io/alphasense/jobs/8550698002" target="_blank" rel="noopener">
+            Customer Success Manager, Financial Services - High Growth
+          </a>
+          <div class="sub">
+            <span class="company">AlphaSense</span>
+            <span class="loc">New York, New York, United States</span>
+            
+          </div>
+          <div class="meta">greenhouse · today</div>
+        </li>
+
+        <li class="job" data-company="alphasense" data-posted-date="2026-07-16">
+          <a class="title" href="https://job-boards.greenhouse.io/alphasense/jobs/8550718002" target="_blank" rel="noopener">
+            Customer Success Manager, Financial Services - Strategic
+          </a>
+          <div class="sub">
+            <span class="company">AlphaSense</span>
+            <span class="loc">New York, New York, United States</span>
+            
+          </div>
+          <div class="meta">greenhouse · today</div>
+        </li>
+
+        <li class="job" data-company="alphasense" data-posted-date="2026-07-16">
+          <a class="title" href="https://job-boards.greenhouse.io/alphasense/jobs/8584858002" target="_blank" rel="noopener">
+            Implementation Consultant, Large Deployments
+          </a>
+          <div class="sub">
+            <span class="company">AlphaSense</span>
+            <span class="loc">Remote - United States</span>
+            
+          </div>
+          <div class="meta">greenhouse · today</div>
+        </li>
+
+        <li class="job" data-company="alphasense" data-posted-date="2026-07-16">
+          <a class="title" href="https://job-boards.greenhouse.io/alphasense/jobs/8600962002" target="_blank" rel="noopener">
+            Manager, Customer Success Managers
+          </a>
+          <div class="sub">
+            <span class="company">AlphaSense</span>
+            <span class="loc">Remote - United States</span>
+            
+          </div>
+          <div class="meta">greenhouse · today</div>
+        </li>
+
+        <li class="job" data-company="alphasense" data-posted-date="2026-07-16">
+          <a class="title" href="https://job-boards.greenhouse.io/alphasense/jobs/8508946002" target="_blank" rel="noopener">
+            Senior Analyst, Revenue Tools - Customer &amp; Product Support
+          </a>
+          <div class="sub">
+            <span class="company">AlphaSense</span>
+            <span class="loc">Remote - United States</span>
+            
+          </div>
+          <div class="meta">greenhouse · today</div>
+        </li>
+
+        <li class="job" data-company="alphasense" data-posted-date="2026-07-16">
+          <a class="title" href="https://job-boards.greenhouse.io/alphasense/jobs/8515702002" target="_blank" rel="noopener">
+            Senior Customer Success Manager
+          </a>
+          <div class="sub">
+            <span class="company">AlphaSense</span>
+            <span class="loc">New York, New York, United States</span>
+            
+          </div>
+          <div class="meta">greenhouse · today</div>
+        </li>
+
+        <li class="job" data-company="alphasense" data-posted-date="2026-07-16">
+          <a class="title" href="https://job-boards.greenhouse.io/alphasense/jobs/8433749002" target="_blank" rel="noopener">
+            Senior Director, Customer Success
+          </a>
+          <div class="sub">
+            <span class="company">AlphaSense</span>
+            <span class="loc">New York, New York, United States; Remote - United States</span>
+            
+          </div>
+          <div class="meta">greenhouse · today</div>
+        </li>
+
+        <li class="job" data-company="alphasense" data-posted-date="2026-07-16">
+          <a class="title" href="https://job-boards.greenhouse.io/alphasense/jobs/8442296002" target="_blank" rel="noopener">
+            Sr. Analyst, Revenue Operations
+          </a>
+          <div class="sub">
+            <span class="company">AlphaSense</span>
+            <span class="loc">Remote - United States</span>
+            
+          </div>
+          <div class="meta">greenhouse · today</div>
+        </li>
+
+        <li class="job" data-company="alphasense" data-posted-date="2026-07-16">
+          <a class="title" href="https://job-boards.greenhouse.io/alphasense/jobs/8457707002" target="_blank" rel="noopener">
+            Sr. Product Manager, New Content Initiatives and Strategy
+          </a>
+          <div class="sub">
+            <span class="company">AlphaSense</span>
+            <span class="loc">New York, New York, United States; Remote - United States</span>
+            
+          </div>
+          <div class="meta">greenhouse · today</div>
+        </li>
+
+        <li class="job" data-company="openai" data-posted-date="2026-07-15">
+          <a class="title" href="https://jobs.ashbyhq.com/openai/0a24703f-6108-4422-807e-78831dd98ed1" target="_blank" rel="noopener">
+            Manager, AI Deployment Engineering - Enterprise
+          </a>
+          <div class="sub">
+            <span class="company">OpenAI</span>
+            <span class="loc">New York City (Remote)</span>
+            
+          </div>
+          <div class="meta">ashby · 1 day ago</div>
+        </li>
+
+        <li class="job" data-company="sixfold" data-posted-date="2026-07-15">
+          <a class="title" href="https://job-boards.greenhouse.io/sixfold/jobs/5234031008" target="_blank" rel="noopener">
+            Forward Deployed Engineer
+          </a>
+          <div class="sub">
+            <span class="company">Sixfold</span>
+            <span class="loc">Remote</span>
+            
+          </div>
+          <div class="meta">greenhouse · 1 day ago</div>
+        </li>
+
+        <li class="job" data-company="openai" data-posted-date="2026-07-14">
+          <a class="title" href="https://jobs.ashbyhq.com/openai/1c2a411c-eb30-406b-bbd0-454d516ad797" target="_blank" rel="noopener">
+            Technical Deployment Lead, Semiconductors
+          </a>
+          <div class="sub">
+            <span class="company">OpenAI</span>
+            <span class="loc">San Francisco (Remote)</span>
+            
+          </div>
+          <div class="meta">ashby · 2 days ago</div>
+        </li>
+
+        <li class="job" data-company="anthropic" data-posted-date="2026-07-14">
+          <a class="title" href="https://job-boards.greenhouse.io/anthropic/jobs/5262637008" target="_blank" rel="noopener">
+            Customer Success Manager, Beneficial Deployments - Global Development
+          </a>
+          <div class="sub">
+            <span class="company">Anthropic</span>
+            <span class="loc">San Francisco, CA | New York City, NY</span>
+            
+          </div>
+          <div class="meta">greenhouse · 1 day ago</div>
+        </li>
+
+        <li class="job" data-company="anthropic" data-posted-date="2026-07-14">
+          <a class="title" href="https://job-boards.greenhouse.io/anthropic/jobs/5175932008" target="_blank" rel="noopener">
+            Customer Success Manager, Higher Education
+          </a>
+          <div class="sub">
+            <span class="company">Anthropic</span>
+            <span class="loc">San Francisco, CA | New York City, NY</span>
+            
+          </div>
+          <div class="meta">greenhouse · 1 day ago</div>
+        </li>
+
+        <li class="job" data-company="anthropic" data-posted-date="2026-07-14">
+          <a class="title" href="https://job-boards.greenhouse.io/anthropic/jobs/5068570008" target="_blank" rel="noopener">
+            Customer Success Manager, Industries
+          </a>
+          <div class="sub">
+            <span class="company">Anthropic</span>
+            <span class="loc">New York City, NY</span>
+            
+          </div>
+          <div class="meta">greenhouse · 1 day ago</div>
+        </li>
+
+        <li class="job" data-company="anthropic" data-posted-date="2026-07-14">
+          <a class="title" href="https://job-boards.greenhouse.io/anthropic/jobs/5174700008" target="_blank" rel="noopener">
+            Customer Success Manager, Scaled
+          </a>
+          <div class="sub">
+            <span class="company">Anthropic</span>
+            <span class="loc">New York City, NY; San Francisco, CA; Seattle, WA</span>
+            
+          </div>
+          <div class="meta">greenhouse · 1 day ago</div>
+        </li>
+
+        <li class="job" data-company="anthropic" data-posted-date="2026-07-14">
+          <a class="title" href="https://job-boards.greenhouse.io/anthropic/jobs/5082455008" target="_blank" rel="noopener">
+            Customer Success Manager, Strategics
+          </a>
+          <div class="sub">
+            <span class="company">Anthropic</span>
+            <span class="loc">New York City, NY; San Francisco, CA; Seattle, WA</span>
+            
+          </div>
+          <div class="meta">greenhouse · 1 day ago</div>
+        </li>
+
+        <li class="job" data-company="anthropic" data-posted-date="2026-07-14">
+          <a class="title" href="https://job-boards.greenhouse.io/anthropic/jobs/5226954008" target="_blank" rel="noopener">
+            Customer Success Programs Manager
+          </a>
+          <div class="sub">
+            <span class="company">Anthropic</span>
+            <span class="loc">Boston, MA; New York City, NY; San Francisco, CA; Seattle, WA; Washington, DC</span>
+            
+          </div>
+          <div class="meta">greenhouse · 1 day ago</div>
+        </li>
+
+        <li class="job" data-company="anthropic" data-posted-date="2026-07-14">
+          <a class="title" href="https://job-boards.greenhouse.io/anthropic/jobs/5301112008" target="_blank" rel="noopener">
+            Engineering Manager, Continuous Deployment and Change Safety
+          </a>
+          <div class="sub">
+            <span class="company">Anthropic</span>
+            <span class="loc">San Francisco, CA | New York City, NY</span>
+            
+          </div>
+          <div class="meta">greenhouse · 1 day ago</div>
+        </li>
+
+        <li class="job" data-company="anthropic" data-posted-date="2026-07-14">
+          <a class="title" href="https://job-boards.greenhouse.io/anthropic/jobs/5153580008" target="_blank" rel="noopener">
+            Head of Programmatic Customer Success
+          </a>
+          <div class="sub">
+            <span class="company">Anthropic</span>
+            <span class="loc">San Francisco, CA | Seattle, WA | New York City, NY | Washington, DC</span>
+            
+          </div>
+          <div class="meta">greenhouse · 1 day ago</div>
+        </li>
+
+        <li class="job" data-company="anthropic" data-posted-date="2026-07-14">
+          <a class="title" href="https://job-boards.greenhouse.io/anthropic/jobs/5179891008" target="_blank" rel="noopener">
+            Product Operations Manager, Claude.ai (Consumer &amp; Growth)
+          </a>
+          <div class="sub">
+            <span class="company">Anthropic</span>
+            <span class="loc">New York City, NY; San Francisco, CA | New York City, NY; Seattle, WA</span>
+            
+          </div>
+          <div class="meta">greenhouse · 1 day ago</div>
+        </li>
+
+        <li class="job" data-company="anthropic" data-posted-date="2026-07-14">
+          <a class="title" href="https://job-boards.greenhouse.io/anthropic/jobs/5179882008" target="_blank" rel="noopener">
+            Product Operations Manager, Feedback Loops
+          </a>
+          <div class="sub">
+            <span class="company">Anthropic</span>
+            <span class="loc">New York City, NY; San Francisco, CA | New York City, NY</span>
+            
+          </div>
+          <div class="meta">greenhouse · 1 day ago</div>
+        </li>
+
+        <li class="job" data-company="anthropic" data-posted-date="2026-07-14">
+          <a class="title" href="https://job-boards.greenhouse.io/anthropic/jobs/4979585008" target="_blank" rel="noopener">
+            Product Support Specialist
+          </a>
+          <div class="sub">
+            <span class="company">Anthropic</span>
+            <span class="loc">New York City, NY; San Francisco, CA; Seattle, WA</span>
+            
+          </div>
+          <div class="meta">greenhouse · 1 day ago</div>
+        </li>
+
+        <li class="job" data-company="parloa" data-posted-date="2026-07-14">
+          <a class="title" href="https://job-boards.eu.greenhouse.io/parloa/jobs/4794825101" target="_blank" rel="noopener">
+            Deployment Strategist - US
+          </a>
+          <div class="sub">
+            <span class="company">Parloa</span>
+            <span class="loc">New York Office</span>
+            
+          </div>
+          <div class="meta">greenhouse · 2 days ago</div>
+        </li>
+
+        <li class="job" data-company="openai" data-posted-date="2026-07-13">
+          <a class="title" href="https://jobs.ashbyhq.com/openai/2a799206-4716-4f26-8aef-372ed6b8df8f" target="_blank" rel="noopener">
+            Product Engagement Specialist, User Operations
+          </a>
+          <div class="sub">
+            <span class="company">OpenAI</span>
+            <span class="loc">San Francisco (Remote)</span>
+            
+          </div>
+          <div class="meta">ashby · 3 days ago</div>
+        </li>
+
+        <li class="job" data-company="openai" data-posted-date="2026-07-13">
+          <a class="title" href="https://jobs.ashbyhq.com/openai/bbf8d3b8-2f8f-49f8-9f35-73c7847647f7" target="_blank" rel="noopener">
+            Product Engagement Manager, User Operations
+          </a>
+          <div class="sub">
+            <span class="company">OpenAI</span>
+            <span class="loc">San Francisco (Remote)</span>
+            
+          </div>
+          <div class="meta">ashby · 3 days ago</div>
+        </li>
+
+        <li class="job" data-company="socure" data-posted-date="2026-07-10">
+          <a class="title" href="https://jobs.ashbyhq.com/socure/67d4f48f-5bc1-4723-a489-a0ea5726a1e4" target="_blank" rel="noopener">
+            Strategic Customer Success Manager,  Public Sector
+          </a>
+          <div class="sub">
+            <span class="company">Socure</span>
+            <span class="loc">Hybrid - US (Remote)</span>
+            
+          </div>
+          <div class="meta">ashby · 5 days ago</div>
+        </li>
+
+        <li class="job" data-company="openai" data-posted-date="2026-07-10">
+          <a class="title" href="https://jobs.ashbyhq.com/openai/6db279ed-873e-44f1-9d2f-51065dad0e9d" target="_blank" rel="noopener">
+            Technical Deployment Lead, Forward Deployed Engineering - Zurich
+          </a>
+          <div class="sub">
+            <span class="company">OpenAI</span>
+            <span class="loc">Zurich, Switzerland (Remote)</span>
+            
+          </div>
+          <div class="meta">ashby · 5 days ago</div>
+        </li>
+
+        <li class="job" data-company="openai" data-posted-date="2026-07-10">
+          <a class="title" href="https://jobs.ashbyhq.com/openai/bd607ac5-830c-4bbe-b699-32490ab70306" target="_blank" rel="noopener">
+            Technical Deployment Lead, Forward Deployed Engineering - Stockholm
+          </a>
+          <div class="sub">
+            <span class="company">OpenAI</span>
+            <span class="loc">Stockholm, Sweden (Remote)</span>
+            
+          </div>
+          <div class="meta">ashby · 5 days ago</div>
+        </li>
+
+        <li class="job" data-company="openai" data-posted-date="2026-07-10">
+          <a class="title" href="https://jobs.ashbyhq.com/openai/d8e93682-b3dc-4967-ad46-aeabd18c25fc" target="_blank" rel="noopener">
+            Technical Deployment Lead, Forward Deployed Engineering - Madrid
+          </a>
+          <div class="sub">
+            <span class="company">OpenAI</span>
+            <span class="loc">Madrid, Spain (Remote)</span>
+            
+          </div>
+          <div class="meta">ashby · 5 days ago</div>
+        </li>
+
+        <li class="job" data-company="openai" data-posted-date="2026-07-10">
+          <a class="title" href="https://jobs.ashbyhq.com/openai/8ba38ba1-d89d-4ea2-b628-c00be58be2c7" target="_blank" rel="noopener">
+            Technical Deployment Lead, Forward Deployed Engineering - Dublin
+          </a>
+          <div class="sub">
+            <span class="company">OpenAI</span>
+            <span class="loc">Dublin, Ireland (Remote)</span>
+            
+          </div>
+          <div class="meta">ashby · 6 days ago</div>
+        </li>
+
+        <li class="job" data-company="openai" data-posted-date="2026-07-10">
+          <a class="title" href="https://jobs.ashbyhq.com/openai/5bae5610-5533-4a7b-a8ec-c09f87413ad3" target="_blank" rel="noopener">
+            Technical Deployment Lead, Forward Deployed Engineering - Paris
+          </a>
+          <div class="sub">
+            <span class="company">OpenAI</span>
+            <span class="loc">Paris, France (Remote)</span>
+            
+          </div>
+          <div class="meta">ashby · 6 days ago</div>
+        </li>
+
+        <li class="job" data-company="openai" data-posted-date="2026-07-10">
+          <a class="title" href="https://jobs.ashbyhq.com/openai/2c16575f-1a04-43af-bd0a-8e8f72e3255f" target="_blank" rel="noopener">
+            Technical Deployment Lead, Forward Deployed Engineering - London
+          </a>
+          <div class="sub">
+            <span class="company">OpenAI</span>
+            <span class="loc">London, UK (Remote)</span>
+            
+          </div>
+          <div class="meta">ashby · 6 days ago</div>
+        </li>
+
+        <li class="job" data-company="openai" data-posted-date="2026-07-10">
+          <a class="title" href="https://jobs.ashbyhq.com/openai/fc999234-93e6-4dbc-bf89-64ca7fb08e22" target="_blank" rel="noopener">
+            GTM Strategy &amp; Operations, Strategic Programs
+          </a>
+          <div class="sub">
+            <span class="company">OpenAI</span>
+            <span class="loc">San Francisco (Remote)</span>
+            
+          </div>
+          <div class="meta">ashby · 6 days ago</div>
+        </li>
+
+        <li class="job" data-company="govwell" data-posted-date="2026-07-10">
+          <a class="title" href="https://jobs.ashbyhq.com/govwell/bdf3ba46-ed64-4f12-b5d5-92ed109be32c" target="_blank" rel="noopener">
+            Deployment Operations Manager
+          </a>
+          <div class="sub">
+            <span class="company">GovWell</span>
+            <span class="loc">New York, NY (Remote)</span>
+            
+          </div>
+          <div class="meta">ashby · 6 days ago</div>
+        </li>
+
+        <li class="job" data-company="parloa" data-posted-date="2026-07-10">
+          <a class="title" href="https://job-boards.eu.greenhouse.io/parloa/jobs/4925069101" target="_blank" rel="noopener">
+            Senior Forward Deployed Engineer (Spain)
+          </a>
+          <div class="sub">
+            <span class="company">Parloa</span>
+            <span class="loc">Madrid; Remotely in Spain</span>
+            
+          </div>
+          <div class="meta">greenhouse · 6 days ago</div>
+        </li>
+
+        <li class="job" data-company="tennr" data-posted-date="2026-07-10">
+          <a class="title" href="https://jobs.ashbyhq.com/tennr/4b30492a-d32f-45a6-a612-2133204f6c27" target="_blank" rel="noopener">
+            Senior Solutions Consultant
+          </a>
+          <div class="sub">
+            <span class="company">Tennr</span>
+            <span class="loc">New York City Office</span>
+            
+          </div>
+          <div class="meta">ashby · 6 days ago</div>
+        </li>
+
+        <li class="job" data-company="kustomer" data-posted-date="2026-07-09">
+          <a class="title" href="https://jobs.ashbyhq.com/kustomer/3529bd5f-ddcf-41fb-b4a5-e877628db054" target="_blank" rel="noopener">
+            Customer Success Manager (UK- London)
+          </a>
+          <div class="sub">
+            <span class="company">Kustomer</span>
+            <span class="loc">UK - Remote (Remote)</span>
+            
+          </div>
+          <div class="meta">ashby · 7 days ago</div>
+        </li>
+
+        <li class="job" data-company="legora" data-posted-date="2026-07-09">
+          <a class="title" href="https://jobs.ashbyhq.com/legora/42de977d-201e-4ef1-854a-91d422047b73" target="_blank" rel="noopener">
+            Forward Deployed Engineer
+          </a>
+          <div class="sub">
+            <span class="company">Legora</span>
+            <span class="loc">New York City</span>
+            
+          </div>
+          <div class="meta">ashby · 7 days ago</div>
+        </li>
+
+        <li class="job" data-company="tennr" data-posted-date="2026-07-09">
+          <a class="title" href="https://jobs.ashbyhq.com/tennr/cd79e448-7c02-4ebd-9be7-04c2dc144a35" target="_blank" rel="noopener">
+            Solutions Consultant
+          </a>
+          <div class="sub">
+            <span class="company">Tennr</span>
+            <span class="loc">New York City Office</span>
+            
+          </div>
+          <div class="meta">ashby · 7 days ago</div>
+        </li>
+
+        <li class="job" data-company="parloa" data-posted-date="2026-07-09">
+          <a class="title" href="https://job-boards.eu.greenhouse.io/parloa/jobs/4906177101" target="_blank" rel="noopener">
+            Manager, Forward Deployed Engineering
+          </a>
+          <div class="sub">
+            <span class="company">Parloa</span>
+            <span class="loc">Berlin Office; London Office; Munich Office; Remotely in Germany; Remotely in the UK</span>
+            
+          </div>
+          <div class="meta">greenhouse · 7 days ago</div>
+        </li>
+
+        <li class="job" data-company="amplify" data-posted-date="2026-07-08">
+          <a class="title" href="https://jobs.ashbyhq.com/amplify/59f8a870-aa4a-48ed-b9b1-fbbcf8da71c6" target="_blank" rel="noopener">
+            Customer Success Manager
+          </a>
+          <div class="sub">
+            <span class="company">Amplify</span>
+            <span class="loc">Remote - United States (Remote)</span>
+            
+          </div>
+          <div class="meta">ashby · 7 days ago</div>
+        </li>
+
+        <li class="job" data-company="harvey" data-posted-date="2026-07-08">
+          <a class="title" href="https://jobs.ashbyhq.com/harvey/2e609316-c131-4c13-9564-34162ff15391" target="_blank" rel="noopener">
+            Customer Success Leader, Enterprise
+          </a>
+          <div class="sub">
+            <span class="company">Harvey</span>
+            <span class="loc">New York (Remote)</span>
+            
+          </div>
+          <div class="meta">ashby · 8 days ago</div>
+        </li>
+
+        <li class="job" data-company="openai" data-posted-date="2026-07-08">
+          <a class="title" href="https://jobs.ashbyhq.com/openai/a38926a6-a514-4ee0-bfe1-408922a2790c" target="_blank" rel="noopener">
+            GTM Strategy &amp; Operations, India &amp; South East Asia
+          </a>
+          <div class="sub">
+            <span class="company">OpenAI</span>
+            <span class="loc">Singapore (Remote)</span>
+            
+          </div>
+          <div class="meta">ashby · 8 days ago</div>
+        </li>
+
+        <li class="job" data-company="rogo" data-posted-date="2026-07-07">
+          <a class="title" href="https://jobs.ashbyhq.com/rogo/9ab1b819-4fcf-4b14-98af-06dcfc82c31e" target="_blank" rel="noopener">
+            Forward Deployed Banker
+          </a>
+          <div class="sub">
+            <span class="company">Rogo</span>
+            <span class="loc">New York City</span>
+            
+          </div>
+          <div class="meta">ashby · 8 days ago</div>
+        </li>
+
+        <li class="job" data-company="rogo" data-posted-date="2026-07-07">
+          <a class="title" href="https://jobs.ashbyhq.com/rogo/fd7d1775-9fa3-470d-8cc1-b2c91e19a31b" target="_blank" rel="noopener">
+            Forward Deployed Investor
+          </a>
+          <div class="sub">
+            <span class="company">Rogo</span>
+            <span class="loc">New York City</span>
+            
+          </div>
+          <div class="meta">ashby · 8 days ago</div>
+        </li>
+
+        <li class="job" data-company="openai" data-posted-date="2026-07-07">
+          <a class="title" href="https://jobs.ashbyhq.com/openai/537cb111-688b-4c6e-8f16-0720361255d6" target="_blank" rel="noopener">
+            Field Security Specialist (Cyber Security Solutions Engineer)
+          </a>
+          <div class="sub">
+            <span class="company">OpenAI</span>
+            <span class="loc">Singapore (Remote)</span>
+            
+          </div>
+          <div class="meta">ashby · 9 days ago</div>
+        </li>
+
+        <li class="job" data-company="amplify" data-posted-date="2026-07-06">
+          <a class="title" href="https://jobs.ashbyhq.com/amplify/d5b11262-ca9e-41d0-a1c2-9bc4f1e40008" target="_blank" rel="noopener">
+            Remote Product Specialist, STEM
+          </a>
+          <div class="sub">
+            <span class="company">Amplify</span>
+            <span class="loc">Remote - United States (Remote)</span>
+            
+          </div>
+          <div class="meta">ashby · 10 days ago</div>
+        </li>
+
+        <li class="job" data-company="harvey" data-posted-date="2026-07-02">
+          <a class="title" href="https://jobs.ashbyhq.com/harvey/4221e6ce-fb4f-4f20-a615-aa1b85d2ef3c" target="_blank" rel="noopener">
+            Staff Product Manager, Legal Operations Platform
+          </a>
+          <div class="sub">
+            <span class="company">Harvey</span>
+            <span class="loc">Toronto (Remote)</span>
+            
+          </div>
+          <div class="meta">ashby · 13 days ago</div>
+        </li>
+
+        <li class="job" data-company="harvey" data-posted-date="2026-07-02">
+          <a class="title" href="https://jobs.ashbyhq.com/harvey/667ee044-f6ae-4714-8339-ff949f8faef1" target="_blank" rel="noopener">
+            Customer Success Manager, Enterprise, EMEA
+          </a>
+          <div class="sub">
+            <span class="company">Harvey</span>
+            <span class="loc">Munich (Remote)</span>
+            
+          </div>
+          <div class="meta">ashby · 14 days ago</div>
+        </li>
+
+        <li class="job" data-company="patlytics" data-posted-date="2026-07-02">
+          <a class="title" href="https://jobs.ashbyhq.com/patlytics/bfb430a3-4e98-46ca-9701-7ba7c4640cba" target="_blank" rel="noopener">
+            Customer Success Manager
+          </a>
+          <div class="sub">
+            <span class="company">Patlytics</span>
+            <span class="loc">New York (Remote)</span>
+            
+          </div>
+          <div class="meta">ashby · 14 days ago</div>
+        </li>
+
+        <li class="job" data-company="harvey" data-posted-date="2026-07-01">
+          <a class="title" href="https://jobs.ashbyhq.com/harvey/0d750bf9-d3f2-4816-9e28-23d12a0ef2e2" target="_blank" rel="noopener">
+            Enterprise Customer Success Manager
+          </a>
+          <div class="sub">
+            <span class="company">Harvey</span>
+            <span class="loc">New York (Remote)</span>
+            
+          </div>
+          <div class="meta">ashby · 15 days ago</div>
+        </li>
+
+        <li class="job" data-company="newsela" data-posted-date="2026-06-30">
+          <a class="title" href="https://job-boards.greenhouse.io/newsela/jobs/8017802" target="_blank" rel="noopener">
+            Director, Scaled Customer Success (Remote, US)
+          </a>
+          <div class="sub">
+            <span class="company">Newsela</span>
+            <span class="loc">Remote - US</span>
+            
+          </div>
+          <div class="meta">greenhouse · 16 days ago</div>
+        </li>
+
+        <li class="job" data-company="harvey" data-posted-date="2026-06-29">
+          <a class="title" href="https://jobs.ashbyhq.com/harvey/641764cf-2907-41e5-b36d-797b33b8f1a9" target="_blank" rel="noopener">
+            Program Manager, Customer Engagement &amp; Community
+          </a>
+          <div class="sub">
+            <span class="company">Harvey</span>
+            <span class="loc">New York (Remote)</span>
+            
+          </div>
+          <div class="meta">ashby · 16 days ago</div>
+        </li>
+
+        <li class="job" data-company="siena ai" data-posted-date="2026-06-26">
+          <a class="title" href="https://jobs.ashbyhq.com/siena/1216b030-76e0-443e-a7a7-7e826d3b3960" target="_blank" rel="noopener">
+            Product Specialist
+          </a>
+          <div class="sub">
+            <span class="company">Siena AI</span>
+            <span class="loc">Remote - Europe (Remote)</span>
+            
+          </div>
+          <div class="meta">ashby · 20 days ago</div>
+        </li>
+
+        <li class="job" data-company="tennr" data-posted-date="2026-06-26">
+          <a class="title" href="https://jobs.ashbyhq.com/tennr/933b8f78-7f4d-4d88-aecf-c022b0753d35" target="_blank" rel="noopener">
+            Associate Solutions Architect
+          </a>
+          <div class="sub">
+            <span class="company">Tennr</span>
+            <span class="loc">New York City Office</span>
+            
+          </div>
+          <div class="meta">ashby · 20 days ago</div>
+        </li>
+
+        <li class="job" data-company="openai" data-posted-date="2026-06-25">
+          <a class="title" href="https://jobs.ashbyhq.com/openai/616ef2ce-3790-432d-9a6d-32abb2f52ff9" target="_blank" rel="noopener">
+            Platform Operations Program Manager
+          </a>
+          <div class="sub">
+            <span class="company">OpenAI</span>
+            <span class="loc">San Francisco (Remote)</span>
+            
+          </div>
+          <div class="meta">ashby · 20 days ago</div>
+        </li>
+
+        <li class="job" data-company="starbridge" data-posted-date="2026-06-25">
+          <a class="title" href="https://jobs.ashbyhq.com/starbridge/61cb50c7-41c3-43de-a857-f0c24ca66818" target="_blank" rel="noopener">
+            Forward Deployed GTME
+          </a>
+          <div class="sub">
+            <span class="company">Starbridge</span>
+            <span class="loc">New York City</span>
+            
+          </div>
+          <div class="meta">ashby · 21 days ago</div>
+        </li>
+
+        <li class="job" data-company="openai" data-posted-date="2026-06-25">
+          <a class="title" href="https://jobs.ashbyhq.com/openai/b1d548dd-6f54-4afa-8ab1-f5fe193a413d" target="_blank" rel="noopener">
+            GTM Strategy &amp; Operations, Enterprise
+          </a>
+          <div class="sub">
+            <span class="company">OpenAI</span>
+            <span class="loc">San Francisco (Remote)</span>
+            
+          </div>
+          <div class="meta">ashby · 21 days ago</div>
+        </li>
+
+        <li class="job" data-company="tennr" data-posted-date="2026-06-24">
+          <a class="title" href="https://jobs.ashbyhq.com/tennr/a439c5b8-1686-4b90-b2bc-cffd761e002d" target="_blank" rel="noopener">
+            Forward Deployed Engineer
+          </a>
+          <div class="sub">
+            <span class="company">Tennr</span>
+            <span class="loc">New York City Office</span>
+            
+          </div>
+          <div class="meta">ashby · 22 days ago</div>
+        </li>
+
+        <li class="job" data-company="harvey" data-posted-date="2026-06-23">
+          <a class="title" href="https://jobs.ashbyhq.com/harvey/2faddc24-1463-4878-9b43-ec8090a39c88" target="_blank" rel="noopener">
+            Engagement Manager
+          </a>
+          <div class="sub">
+            <span class="company">Harvey</span>
+            <span class="loc">New York (Remote)</span>
+            
+          </div>
+          <div class="meta">ashby · 22 days ago</div>
+        </li>
+
+        <li class="job" data-company="openai" data-posted-date="2026-06-23">
+          <a class="title" href="https://jobs.ashbyhq.com/openai/b43339a1-e830-4761-a193-3438f34f9ebb" target="_blank" rel="noopener">
+            Forward Deployed Engineer - Seoul
+          </a>
+          <div class="sub">
+            <span class="company">OpenAI</span>
+            <span class="loc">Seoul, South Korea (Remote)</span>
+            
+          </div>
+          <div class="meta">ashby · 23 days ago</div>
+        </li>
+
+        <li class="job" data-company="openai" data-posted-date="2026-06-22">
+          <a class="title" href="https://jobs.ashbyhq.com/openai/af271527-dfc1-455e-9778-66b3f93139e4" target="_blank" rel="noopener">
+            Technical Deployment Lead - UAE
+          </a>
+          <div class="sub">
+            <span class="company">OpenAI</span>
+            <span class="loc">Abu Dhabi, UAE (Remote)</span>
+            
+          </div>
+          <div class="meta">ashby · 23 days ago</div>
+        </li>
+
+        <li class="job" data-company="tennr" data-posted-date="2026-06-22">
+          <a class="title" href="https://jobs.ashbyhq.com/tennr/30959a5c-e3b9-4768-a41f-bf24d8fcf1bb" target="_blank" rel="noopener">
+            Associate Solutions Consultant
+          </a>
+          <div class="sub">
+            <span class="company">Tennr</span>
+            <span class="loc">New York City Office</span>
+            
+          </div>
+          <div class="meta">ashby · 24 days ago</div>
+        </li>
+
+        <li class="job" data-company="harvey" data-posted-date="2026-06-18">
+          <a class="title" href="https://jobs.ashbyhq.com/harvey/11524077-7b25-492e-a2da-a183014013b4" target="_blank" rel="noopener">
+            Legal Engineer - Product Specialist (In-House)
+          </a>
+          <div class="sub">
+            <span class="company">Harvey</span>
+            <span class="loc">New York (Remote)</span>
+            
+          </div>
+          <div class="meta">ashby · 28 days ago</div>
+        </li>
+
+        <li class="job" data-company="openai" data-posted-date="2026-06-18">
+          <a class="title" href="https://jobs.ashbyhq.com/openai/a4787fb2-94d7-4b8e-b82c-093663e4ee85" target="_blank" rel="noopener">
+            Business Operations Partner, Transportation Program
+          </a>
+          <div class="sub">
+            <span class="company">OpenAI</span>
+            <span class="loc">San Francisco (Remote)</span>
+            
+          </div>
+          <div class="meta">ashby · 28 days ago</div>
+        </li>
+
+        <li class="job" data-company="harvey" data-posted-date="2026-06-18">
+          <a class="title" href="https://jobs.ashbyhq.com/harvey/377fcb88-cbf6-493f-8440-92708f4c9931" target="_blank" rel="noopener">
+            Legal Engineer, Product Specialist Manager
+          </a>
+          <div class="sub">
+            <span class="company">Harvey</span>
+            <span class="loc">New York (Remote)</span>
+            
+          </div>
+          <div class="meta">ashby · 28 days ago</div>
+        </li>
+
+        <li class="job" data-company="openai" data-posted-date="2026-06-18">
+          <a class="title" href="https://jobs.ashbyhq.com/openai/e9d435e1-1b9e-4715-84ce-75f372e5559c" target="_blank" rel="noopener">
+            Forward Deployed Engineer - UAE
+          </a>
+          <div class="sub">
+            <span class="company">OpenAI</span>
+            <span class="loc">Abu Dhabi, UAE (Remote)</span>
+            
+          </div>
+          <div class="meta">ashby · 28 days ago</div>
+        </li>
+
+        <li class="job" data-company="harvey" data-posted-date="2026-06-18">
+          <a class="title" href="https://jobs.ashbyhq.com/harvey/622c22e1-5dae-4ea8-a8ee-f933b223ed5b" target="_blank" rel="noopener">
+            Customer Success Manager, ANZ - Major Accounts, Sydney
+          </a>
+          <div class="sub">
+            <span class="company">Harvey</span>
+            <span class="loc">Sydney (Remote)</span>
+            
+          </div>
+          <div class="meta">ashby · 28 days ago</div>
+        </li>
+
+        <li class="job" data-company="openai" data-posted-date="2026-06-18">
+          <a class="title" href="https://jobs.ashbyhq.com/openai/580f9e7e-20cc-429c-877a-0b5f5233abdd" target="_blank" rel="noopener">
+            Forward Deployed Engineer - Stockholm
+          </a>
+          <div class="sub">
+            <span class="company">OpenAI</span>
+            <span class="loc">Stockholm, Sweden (Remote)</span>
+            
+          </div>
+          <div class="meta">ashby · 28 days ago</div>
+        </li>
+
+        <li class="job" data-company="openai" data-posted-date="2026-06-18">
+          <a class="title" href="https://jobs.ashbyhq.com/openai/2218158b-f103-4d85-b4f9-e0f2983d6849" target="_blank" rel="noopener">
+            Forward Deployed Engineer - Madrid
+          </a>
+          <div class="sub">
+            <span class="company">OpenAI</span>
+            <span class="loc">Madrid, Spain (Remote)</span>
+            
+          </div>
+          <div class="meta">ashby · 28 days ago</div>
+        </li>
+
+        <li class="job" data-company="patlytics" data-posted-date="2026-06-15">
+          <a class="title" href="https://jobs.ashbyhq.com/patlytics/b2d138c5-a6bc-4fa7-af40-0125bc71ff27" target="_blank" rel="noopener">
+            Revenue Operations Lead
+          </a>
+          <div class="sub">
+            <span class="company">Patlytics</span>
+            <span class="loc">New York</span>
+            
+          </div>
+          <div class="meta">ashby · 30 days ago</div>
+        </li>
+
+        <li class="job" data-company="harvey" data-posted-date="2026-06-15">
+          <a class="title" href="https://jobs.ashbyhq.com/harvey/8da5efb4-4659-4ff7-aca9-b9a88c040ba3" target="_blank" rel="noopener">
+            Mid-Market Customer Success Manager
+          </a>
+          <div class="sub">
+            <span class="company">Harvey</span>
+            <span class="loc">Chicago (Remote)</span>
+            
+          </div>
+          <div class="meta">ashby · 30 days ago</div>
+        </li>
+
+        <li class="job" data-company="basis" data-posted-date="2026-06-15">
+          <a class="title" href="https://jobs.ashbyhq.com/basis-ai/00c7b40b-f697-4d40-bc53-8e4c072daed6" target="_blank" rel="noopener">
+            Customer Success Manager
+          </a>
+          <div class="sub">
+            <span class="company">Basis</span>
+            <span class="loc">New York Office</span>
+            
+          </div>
+          <div class="meta">ashby · 30 days ago</div>
+        </li>
+
+        <li class="job" data-company="draftwise" data-posted-date="">
+          <a class="title" href="https://www.workatastartup.com/jobs/65290" target="_blank" rel="noopener">
+            Legal Product Specialist (US)
+          </a>
+          <div class="sub">
+            <span class="company">DraftWise</span>
+            <span class="loc">New York, NY, US / Remote (US)</span>
+            <span class="salary">$130,000–$160,000</span>
+          </div>
+          <div class="meta">waas</div>
+        </li>
+
+        <li class="job" data-company="draftwise" data-posted-date="">
+          <a class="title" href="https://www.workatastartup.com/jobs/71708" target="_blank" rel="noopener">
+            Senior Customer Success Manager
+          </a>
+          <div class="sub">
+            <span class="company">DraftWise</span>
+            <span class="loc">New York, NY, US / Chicago, IL, US / Toronto, ON, CA / Toronto, Ontario, CA / Remote (US)</span>
+            <span class="salary">$150,000–$190,000</span>
+          </div>
+          <div class="meta">waas</div>
+        </li>
+
+        <li class="job" data-company="draftwise" data-posted-date="">
+          <a class="title" href="https://www.workatastartup.com/jobs/73506" target="_blank" rel="noopener">
+            Legal Product Specialist (UK)
+          </a>
+          <div class="sub">
+            <span class="company">DraftWise</span>
+            <span class="loc">London, England, GB / Remote (GB)</span>
+            <span class="salary">$100,000–$120,000</span>
+          </div>
+          <div class="meta">waas</div>
+        </li>
+
+        <li class="job" data-company="vectorshift" data-posted-date="">
+          <a class="title" href="https://www.workatastartup.com/jobs/96751" target="_blank" rel="noopener">
+            Chief of Staff
+          </a>
+          <div class="sub">
+            <span class="company">VectorShift</span>
+            <span class="loc">New York, NY, US</span>
+            <span class="salary">$125,000–$175,000</span>
+          </div>
+          <div class="meta">waas</div>
+        </li>
+        </ul>
+        <ul id="list-other" class="job-list" hidden>
+          
+        <li class="job" data-company="qbdvision, inc." data-posted-date="2026-07-10">
+          <a class="title" href="https://salutemyjob.com/jobs/customer-success-specialist-rochester-new-york/2869146530-2/" target="_blank" rel="noopener">
+            Customer Success Specialist
+          </a>
+          <div class="sub">
+            <span class="company">QbDVision, Inc.</span>
+            <span class="loc">Rochester, New York</span>
+            
+          </div>
+          <div class="meta">JSearch (SaluteMyJob) · 6 days ago</div>
+        </li>
+
+        <li class="job" data-company="canary technologies" data-posted-date="2026-07-06">
+          <a class="title" href="https://www.linkedin.com/jobs/view/ai-voice-implementation-engineer-at-canary-technologies-4437423643" target="_blank" rel="noopener">
+            AI Voice Implementation Engineer
+          </a>
+          <div class="sub">
+            <span class="company">Canary Technologies</span>
+            <span class="loc">New York, New York</span>
+            
+          </div>
+          <div class="meta">JSearch (LinkedIn) · 10 days ago</div>
+        </li>
+
+        <li class="job" data-company="fonn group" data-posted-date="2026-07-01">
+          <a class="title" href="https://jobs.fox8.com/jobs/customer-success-specialist-new-city-new-york/2853300371-2/" target="_blank" rel="noopener">
+            Customer Success Specialist
+          </a>
+          <div class="sub">
+            <span class="company">Fonn Group</span>
+            <span class="loc">New City, New York</span>
+            
+          </div>
+          <div class="meta">JSearch (FOX8 Jobs) · 15 days ago</div>
+        </li>
+        </ul>
+
+        <footer>Job Radar · Target Companies from your named ATS boards, Other Postings from Adzuna + JSearch broad search, once each morning.</footer>
+      </div>
     </div>
-
-    <ul id="list">
-      
-        <li class="job">
-          <a class="title" href="https://www.linkedin.com/jobs/view/senior-manager-product-operations-at-fora-travel-4428261286" target="_blank" rel="noopener">
-            Senior Manager, Product Operations
-          </a>
-          <div class="sub">
-            <span class="company">Fora Travel</span>
-            <span class="loc">New York, New York</span>
-            
-          </div>
-          <div class="meta">JSearch (LinkedIn) · 3 days ago</div>
-        </li>
-
-        <li class="job">
-          <a class="title" href="https://jooble.org/jdp/-6852220915925742711" target="_blank" rel="noopener">
-            Product Operations Lead: Scale Planning, Cadences &amp; AI
-          </a>
-          <div class="sub">
-            <span class="company">Stellar Development Foundation</span>
-            <span class="loc">New York, New York</span>
-            
-          </div>
-          <div class="meta">JSearch (Jooble) · 3 days ago</div>
-        </li>
-
-        <li class="job">
-          <a class="title" href="https://www.learn4good.com/jobs/white-plains/new-york/business/5279121785/e/" target="_blank" rel="noopener">
-            Bill Product Operations Architect
-          </a>
-          <div class="sub">
-            <span class="company">RAMP</span>
-            <span class="loc">White Plains, New York</span>
-            <span class="salary">$128,000–$180,000</span>
-          </div>
-          <div class="meta">JSearch (Learn4Good) · 3 days ago</div>
-        </li>
-
-        <li class="job">
-          <a class="title" href="https://www.linkedin.com/jobs/view/director-strategy-operations-local-markets-at-doordash-4400477099" target="_blank" rel="noopener">
-            Director Strategy &amp; Operations, Local Markets
-          </a>
-          <div class="sub">
-            <span class="company">DoorDash</span>
-            <span class="loc">New York, New York</span>
-            
-          </div>
-          <div class="meta">JSearch (LinkedIn) · 3 days ago</div>
-        </li>
-
-        <li class="job">
-          <a class="title" href="https://www.linkedin.com/jobs/view/strategy-and-operations-senior-manager-gup-go-to-market-at-google-4438330335" target="_blank" rel="noopener">
-            Strategy and Operations Senior Manager, gUP Go-To-Market
-          </a>
-          <div class="sub">
-            <span class="company">Google</span>
-            <span class="loc">New York, New York</span>
-            
-          </div>
-          <div class="meta">JSearch (LinkedIn) · 4 days ago</div>
-        </li>
-
-        <li class="job">
-          <a class="title" href="https://www.learn4good.com/jobs/hempstead/new-york/business/5276273758/e/" target="_blank" rel="noopener">
-            Product Operations Specialist | Bill
-          </a>
-          <div class="sub">
-            <span class="company">RAMP</span>
-            <span class="loc">South Hempstead, New York</span>
-            <span class="salary">$128,000–$180,000</span>
-          </div>
-          <div class="meta">JSearch (Learn4Good) · 5 days ago</div>
-        </li>
-
-        <li class="job">
-          <a class="title" href="https://www.learn4good.com/jobs/new-york/info_technology/5266531278/e/" target="_blank" rel="noopener">
-            Product Operations Associate - AI Avatars
-          </a>
-          <div class="sub">
-            <span class="company">Framework Ventures</span>
-            <span class="loc">New York, New York</span>
-            <span class="salary">$70,000–$120,000</span>
-          </div>
-          <div class="meta">JSearch (Learn4Good) · 7 days ago</div>
-        </li>
-
-        <li class="job">
-          <a class="title" href="https://www.efinancialcareers.com/jobs-United_States-New_York-Senior_Manager_Data_Analysis_-_Network_Platforms_and_Product_Operations.id24475226" target="_blank" rel="noopener">
-            Senior Manager, Data Analysis - Network Platforms and Product Operations | New York, NY, USA
-          </a>
-          <div class="sub">
-            <span class="company">Capital One Financial Corporation</span>
-            <span class="loc">New York, New York</span>
-            <span class="salary">$182,000–$208,000</span>
-          </div>
-          <div class="meta">JSearch (EFinancialCareers) · 11 days ago</div>
-        </li>
-
-        <li class="job">
-          <a class="title" href="https://www.indeed.com/viewjob?jk=78a434832fdf10c7" target="_blank" rel="noopener">
-            Senior Manager, Data Analysis - Network Platforms and Product Operations
-          </a>
-          <div class="sub">
-            <span class="company">Capital One</span>
-            <span class="loc">New York, New York</span>
-            
-          </div>
-          <div class="meta">JSearch (Indeed) · 13 days ago</div>
-        </li>
-
-        <li class="job">
-          <a class="title" href="https://www.builtinnyc.com/job/senior-manager-strategic-planning-product-ops/9601779" target="_blank" rel="noopener">
-            Senior Manager-Strategic Planning &amp; Product Ops
-          </a>
-          <div class="sub">
-            <span class="company">American Express</span>
-            <span class="loc">New York, New York</span>
-            
-          </div>
-          <div class="meta">JSearch (Built In NYC) · 14 days ago</div>
-        </li>
-
-        <li class="job">
-          <a class="title" href="https://www.builtinnyc.com/job/product-strategy-and-operations-manager-new-verticals-housing/7416870" target="_blank" rel="noopener">
-            Product Strategy and Operations, Manager - New Verticals | Housing
-          </a>
-          <div class="sub">
-            <span class="company">EliseAI</span>
-            <span class="loc">New York, New York</span>
-            <span class="salary">$150,000–$200,000</span>
-          </div>
-          <div class="meta">JSearch (Built In NYC) · 16 days ago</div>
-        </li>
-
-        <li class="job">
-          <a class="title" href="https://www.builtinnyc.com/job/senior-product-manager-ai-investment-operations-vice-president/9224812" target="_blank" rel="noopener">
-            Senior Product Manager - AI Investment Operations, Vice President
-          </a>
-          <div class="sub">
-            <span class="company">BlackRock</span>
-            <span class="loc">New York, New York</span>
-            <span class="salary">$162,000–$215,000</span>
-          </div>
-          <div class="meta">JSearch (Built In NYC) · 24 days ago</div>
-        </li>
-
-        <li class="job">
-          <a class="title" href="https://www.builtinnyc.com/job/senior-product-operations-manager/9188759" target="_blank" rel="noopener">
-            Senior Product Operations Manager
-          </a>
-          <div class="sub">
-            <span class="company">Rain</span>
-            <span class="loc">New York, New York</span>
-            
-          </div>
-          <div class="meta">JSearch (Built In NYC) · 25 days ago</div>
-        </li>
-
-        <li class="job">
-          <a class="title" href="https://bebee.com/us/jobs/senior-product-ops-leader-scale-ai-smartsheet-new-york-ny-united-states--appcast-7428_9eb80f9d47205e31b6dd4c50456c657248e3e2e6be651860140db4acd7bf70c7" target="_blank" rel="noopener">
-            Senior Product Ops Leader - Scale &amp; AI
-          </a>
-          <div class="sub">
-            <span class="company">Smartsheet</span>
-            <span class="loc">New York, New York</span>
-            
-          </div>
-          <div class="meta">JSearch (BeBee) · 25 days ago</div>
-        </li>
-
-        <li class="job">
-          <a class="title" href="https://www.builtinnyc.com/job/product-operations-analyst-data-insights/9175547" target="_blank" rel="noopener">
-            Product Operations Analyst (Data &amp; Insights)
-          </a>
-          <div class="sub">
-            <span class="company">Inmar Intelligence</span>
-            <span class="loc">New York, New York</span>
-            
-          </div>
-          <div class="meta">JSearch (Built In NYC) · 27 days ago</div>
-        </li>
-    </ul>
-
-    <footer>Job Radar · pulls from your named company boards + a broad Adzuna search, once each morning.</footer>
   </div>
 
 <script>
+  const tabs = Array.from(document.querySelectorAll('.tab'));
+  const panels = {
+    target: document.getElementById('list-target'),
+    other: document.getElementById('list-other'),
+  };
+  tabs.forEach(btn => btn.addEventListener('click', () => {
+    tabs.forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected', 'false'); });
+    btn.classList.add('active');
+    btn.setAttribute('aria-selected', 'true');
+    Object.entries(panels).forEach(([key, el]) => { el.hidden = key !== btn.dataset.tab; });
+  }));
+
   const q = document.getElementById('q');
-  const items = Array.from(document.querySelectorAll('#list .job'));
-  function apply() {
-    const term = q.value.trim().toLowerCase();
-    items.forEach(el => {
-      const hitText = !term || el.textContent.toLowerCase().includes(term);
-      el.style.display = hitText ? '' : 'none';
-    });
+  const items = Array.from(document.querySelectorAll('.job-list .job'));
+
+  // Shared filter state: every control (search box, and the ones added
+  // below) writes into this object and then calls applyFilters(). Keeps
+  // the independently-built filters from stepping on each other's DOM
+  // queries or display-toggling logic.
+  const filterState = {
+    search: '',       // lowercased search term, '' = no filter
+    companies: null,  // Set of selected data-company keys, null/empty = no filter
+    sinceDate: null,  // 'YYYY-MM-DD' string, null = no filter
+  };
+
+  function computeVisible(el) {
+    if (filterState.search) {
+      const text = el.textContent.toLowerCase();
+      if (!text.includes(filterState.search)) return false;
+    }
+    if (filterState.companies && filterState.companies.size > 0 && !filterState.companies.has(el.dataset.company)) {
+      return false;
+    }
+    if (filterState.sinceDate) {
+      const postedDate = el.dataset.postedDate;
+      // Missing/unparseable posted date: keep, same as everywhere else in
+      // the app that treats an unknown date as "don't filter it out".
+      // ISO 'YYYY-MM-DD' strings compare correctly with plain < / >=.
+      if (postedDate && postedDate < filterState.sinceDate) return false;
+    }
+    return true;
   }
-  q.addEventListener('input', apply);
+
+  function applyFilters() {
+    items.forEach(el => { el.style.display = computeVisible(el) ? '' : 'none'; });
+  }
+
+  q.addEventListener('input', () => {
+    filterState.search = q.value.trim().toLowerCase();
+    applyFilters();
+  });
+
+  const dateFilter = document.getElementById('date-filter');
+  dateFilter.addEventListener('change', () => {
+    filterState.sinceDate = dateFilter.value || null;
+    applyFilters();
+  });
+  (function() {
+    const listEl = document.getElementById('company-filter-list');
+    const seen = new Map(); // data-company key -> human-readable label
+    items.forEach(el => {
+      const key = el.dataset.company;
+      if (!key || seen.has(key)) return;
+      const companyEl = el.querySelector('.company');
+      const label = companyEl ? companyEl.textContent.trim() : key;
+      seen.set(key, label);
+    });
+    const companies = Array.from(seen.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+
+    if (companies.length === 0) {
+      listEl.innerHTML = '<p class="company-filter-empty">No companies</p>';
+      return;
+    }
+
+    filterState.companies = new Set();
+    listEl.innerHTML = '';
+
+    companies.forEach(([key, label], i) => {
+      const row = document.createElement('div');
+      row.className = 'company-filter-row';
+
+      const id = 'company-filter-' + i;
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.id = id;
+      checkbox.value = key;
+
+      const labelNode = document.createElement('label');
+      labelNode.setAttribute('for', id);
+      labelNode.textContent = label;
+
+      checkbox.addEventListener('change', () => {
+        if (checkbox.checked) {
+          filterState.companies.add(key);
+        } else {
+          filterState.companies.delete(key);
+        }
+        applyFilters();
+      });
+
+      row.appendChild(checkbox);
+      row.appendChild(labelNode);
+      listEl.appendChild(row);
+    });
+  })();
 </script>
 </body>
 </html>

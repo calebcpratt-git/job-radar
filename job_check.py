@@ -4,7 +4,9 @@ Job Radar — pulls job postings each morning, filters them to your criteria,
 and writes an HTML dashboard.
 
 Sources:
-  - Specific companies via their public ATS boards (Greenhouse / Lever / Ashby)
+  - Named companies via their public ATS boards, driven by ats_map.csv
+    (Ashby / Workable / Greenhouse / Lever / Rippling / Gem / Work at a
+    Startup) — see ats_fetch.py
   - A broad search across job boards via the Adzuna API
   - A broad search via JSearch (Google for Jobs: LinkedIn, Indeed, Glassdoor, etc.)
 
@@ -21,6 +23,8 @@ from pathlib import Path
 
 import requests
 import yaml
+
+from ats_fetch import get_all_ats_jobs
 
 ROOT = Path(__file__).resolve().parent
 CONFIG_PATH = ROOT / "config.yaml"
@@ -50,6 +54,27 @@ USER_AGENT = "job-radar/1.0 (personal job search)"
 # --------------------------------------------------------------------------- #
 # Fetching
 # --------------------------------------------------------------------------- #
+def title_rule_words(title_rules):
+    """Union of every word across all title_rules, in first-seen order.
+
+    title_rules is the single source of truth for "what titles count" — the
+    same word list drives the local title_rules filter (matches()) AND the
+    Adzuna/JSearch source queries below, so a rule added there automatically
+    widens what those APIs are asked for. Without this, a source query stuck
+    on a hardcoded phrase like "product operations" can never return a
+    posting titled e.g. "Forward Deployed Strategist" for title_rules to even
+    have a chance to keep."""
+    seen = set()
+    words = []
+    for rule in title_rules or []:
+        for w in rule:
+            w = str(w).lower()
+            if w not in seen:
+                seen.add(w)
+                words.append(w)
+    return words
+
+
 def _get(url, params=None, headers=None):
     merged_headers = {"User-Agent": USER_AGENT}
     if headers:
@@ -57,110 +82,6 @@ def _get(url, params=None, headers=None):
     r = requests.get(url, params=params, timeout=HTTP_TIMEOUT, headers=merged_headers)
     r.raise_for_status()
     return r.json()
-
-
-def fetch_greenhouse(token):
-    data = _get(f"https://boards-api.greenhouse.io/v1/boards/{token}/jobs",
-                params={"content": "true"})
-    jobs = []
-    for j in data.get("jobs", []):
-        jobs.append({
-            "id": f"gh:{token}:{j.get('id')}",
-            "title": j.get("title", ""),
-            "company": None,  # filled by caller
-            "location": (j.get("location") or {}).get("name", ""),
-            "url": j.get("absolute_url", ""),
-            "salary_min": None,
-            "salary_max": None,
-            "posted": j.get("updated_at"),
-            "source": "greenhouse",
-        })
-    return jobs
-
-
-def fetch_lever(token):
-    data = _get(f"https://api.lever.co/v0/postings/{token}", params={"mode": "json"})
-    jobs = []
-    for j in data:
-        cats = j.get("categories") or {}
-        created = j.get("createdAt")
-        posted = None
-        if created:
-            posted = datetime.fromtimestamp(created / 1000, tz=timezone.utc).isoformat()
-        jobs.append({
-            "id": f"lv:{token}:{j.get('id')}",
-            "title": j.get("text", ""),
-            "company": None,
-            "location": cats.get("location", ""),
-            "url": j.get("hostedUrl", ""),
-            "salary_min": None,
-            "salary_max": None,
-            "posted": posted,
-            "source": "lever",
-        })
-    return jobs
-
-
-def fetch_ashby(token):
-    data = _get(f"https://api.ashbyhq.com/posting-api/job-board/{token}",
-                params={"includeCompensation": "true"})
-    jobs = []
-    for j in data.get("jobs", []):
-        loc = j.get("location") or j.get("locationName") or ""
-        if j.get("isRemote"):
-            loc = (loc + " (Remote)").strip()
-        comp = j.get("compensation") or {}
-        smin = smax = None
-        # Ashby nests compensation tiers; grab the first numeric range if present.
-        for tier in (comp.get("compensationTiers") or []):
-            for comp_part in (tier.get("components") or []):
-                cv = comp_part.get("compensationRange") or {}
-                if cv.get("minValue"):
-                    smin = cv.get("minValue")
-                    smax = cv.get("maxValue")
-                    break
-            if smin:
-                break
-        jobs.append({
-            "id": f"ab:{token}:{j.get('id')}",
-            "title": j.get("title", ""),
-            "company": None,
-            "location": loc,
-            "url": j.get("jobUrl") or j.get("applyUrl", ""),
-            "salary_min": smin,
-            "salary_max": smax,
-            "posted": j.get("publishedAt") or j.get("publishedDate"),
-            "source": "ashby",
-        })
-    return jobs
-
-
-ATS_FETCHERS = {
-    "greenhouse": fetch_greenhouse,
-    "lever": fetch_lever,
-    "ashby": fetch_ashby,
-}
-
-
-def fetch_companies(companies):
-    out = []
-    for c in companies:
-        ats = (c.get("ats") or "").lower()
-        token = c.get("token")
-        name = c.get("name") or token
-        fetcher = ATS_FETCHERS.get(ats)
-        if not fetcher or not token:
-            print(f"  ! skipping {name}: unknown ats '{ats}' or missing token", file=sys.stderr)
-            continue
-        try:
-            jobs = fetcher(token)
-            for j in jobs:
-                j["company"] = name
-            out.extend(jobs)
-            print(f"  · {name} ({ats}): {len(jobs)} postings")
-        except Exception as e:  # one bad board shouldn't kill the run
-            print(f"  ! {name} ({ats}) failed: {e}", file=sys.stderr)
-    return out
 
 
 def fetch_adzuna(cfg, criteria):
@@ -174,13 +95,19 @@ def fetch_adzuna(cfg, criteria):
     country = cfg.get("country", "us")
     pages = int(cfg.get("pages", 1))
     per_page = int(cfg.get("results_per_page", 50))
+    # Derived from title_rules (see title_rule_words) rather than a hardcoded
+    # phrase, so this stays in sync with the same criteria used to filter
+    # named-company ATS postings — otherwise Adzuna's own server-side search
+    # would exclude titles (e.g. "Chief of Staff") before title_rules ever
+    # gets a chance to keep them.
+    what_or = " ".join(title_rule_words(criteria.get("title_rules")))
     out = []
     for page in range(1, pages + 1):
         params = {
             "app_id": app_id,
             "app_key": app_key,
             "results_per_page": per_page,
-            "what_or": cfg.get("what_or", ""),
+            "what_or": what_or,
             "sort_by": "date",
             "content-type": "application/json",
         }
@@ -242,45 +169,57 @@ def fetch_jsearch(cfg, criteria):
     else:
         date_posted = "month"
 
+    # Derived from title_rules (see title_rule_words) rather than a hardcoded
+    # phrase, so the query covers the same universe of titles title_rules
+    # filters for locally — otherwise Google for Jobs would never surface a
+    # posting (e.g. "Forward Deployed Strategist") for title_rules to keep.
+    # One combined OR query, not one query per rule: JSearch bills per query
+    # regardless of num_pages, so query count stays fixed and cfg["pages"]
+    # is the knob for how deep into the broadened result set to fetch.
+    words = title_rule_words(criteria.get("title_rules"))
+    query_location = criteria.get("location") or ""
+    query = f"({' OR '.join(words)})" if words else "jobs"
+    if query_location:
+        query += f" in {query_location}"
+
     out = []
-    for query in cfg.get("queries", []):
-        # search-v2 takes a page *count* (num_pages) and returns that many
-        # pages of results in a single call — it does not take a page
-        # *number*, so one call per query covers cfg["pages"] pages.
-        params = {
-            "query": query,
-            "num_pages": cfg.get("pages", 1),
-            "country": cfg.get("country", "us"),
-            "date_posted": date_posted,
-        }
-        try:
-            data = _get(JSEARCH_URL, params=params, headers={"x-api-key": api_key})
-        except Exception as e:
-            print(f"  ! JSearch query '{query}' failed: {e}", file=sys.stderr)
-            continue
-        # search-v2 nests results under data.jobs (plus a data.cursor for
-        # paging beyond num_pages), unlike the flat list some JSearch docs
-        # describe.
-        results = (data.get("data") or {}).get("jobs") or []
-        for j in results:
-            city = j.get("job_city") or ""
-            state = j.get("job_state") or ""
-            location = ", ".join(p for p in (city, state) if p)
-            if j.get("job_is_remote"):
-                location = (location + " (Remote)").strip()
-            publisher = j.get("job_publisher") or "JSearch"
-            out.append({
-                "id": f"js:{j.get('job_id')}",
-                "title": j.get("job_title") or "",
-                "company": j.get("employer_name") or "",
-                "location": location,
-                "url": j.get("job_apply_link") or j.get("job_google_link") or "",
-                "salary_min": j.get("job_min_salary"),
-                "salary_max": j.get("job_max_salary"),
-                "posted": j.get("job_posted_at_datetime_utc"),
-                "description": j.get("job_description") or "",
-                "source": f"JSearch ({publisher})",
-            })
+    # search-v2 takes a page *count* (num_pages) and returns that many
+    # pages of results in a single call — it does not take a page
+    # *number*, so one call covers cfg["pages"] pages.
+    params = {
+        "query": query,
+        "num_pages": cfg.get("pages", 1),
+        "country": cfg.get("country", "us"),
+        "date_posted": date_posted,
+    }
+    try:
+        data = _get(JSEARCH_URL, params=params, headers={"x-api-key": api_key})
+    except Exception as e:
+        print(f"  ! JSearch query failed: {e}", file=sys.stderr)
+        data = {}
+    # search-v2 nests results under data.jobs (plus a data.cursor for
+    # paging beyond num_pages), unlike the flat list some JSearch docs
+    # describe.
+    results = (data.get("data") or {}).get("jobs") or []
+    for j in results:
+        city = j.get("job_city") or ""
+        state = j.get("job_state") or ""
+        location = ", ".join(p for p in (city, state) if p)
+        if j.get("job_is_remote"):
+            location = (location + " (Remote)").strip()
+        publisher = j.get("job_publisher") or "JSearch"
+        out.append({
+            "id": f"js:{j.get('job_id')}",
+            "title": j.get("job_title") or "",
+            "company": j.get("employer_name") or "",
+            "location": location,
+            "url": j.get("job_apply_link") or j.get("job_google_link") or "",
+            "salary_min": j.get("job_min_salary"),
+            "salary_max": j.get("job_max_salary"),
+            "posted": j.get("job_posted_at_datetime_utc"),
+            "description": j.get("job_description") or "",
+            "source": f"JSearch ({publisher})",
+        })
     print(f"  · JSearch broad search: {len(out)} postings")
     return out
 
@@ -353,55 +292,99 @@ def fmt_salary(job):
     return f"${int(v):,}"
 
 
-def fmt_posted(iso):
+def days_old(iso):
+    """Whole days between an ISO posted timestamp and now, or None if the
+    timestamp is missing/unparseable. Used by fmt_posted() for the
+    "N days ago" display text."""
     if not iso:
-        return ""
+        return None
     try:
         dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
-        days = (datetime.now(timezone.utc) - dt).days
-        if days <= 0:
-            return "today"
-        if days == 1:
-            return "1 day ago"
-        return f"{days} days ago"
+        return (datetime.now(timezone.utc) - dt).days
     except Exception:
+        return None
+
+
+def fmt_posted(iso):
+    days = days_old(iso)
+    if days is None:
         return ""
+    if days <= 0:
+        return "today"
+    if days == 1:
+        return "1 day ago"
+    return f"{days} days ago"
 
 
-def render(jobs, label, max_days_old):
-    now = datetime.now(timezone.utc).astimezone()
+def posted_date_str(iso):
+    """UTC calendar date (YYYY-MM-DD) of a posted ISO timestamp, or None if
+    missing/unparseable. This is what the "Posted since" date-picker filter
+    compares against — a plain calendar date, not a relative day count, so
+    it lines up with what an <input type="date"> picker returns."""
+    if not iso:
+        return None
+    try:
+        dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+        return dt.astimezone(timezone.utc).date().isoformat()
+    except Exception:
+        return None
 
+
+def render_rows(jobs, empty_message):
     rows = []
     for j in jobs:
         salary = fmt_salary(j)
-        posted = fmt_posted(j.get("posted"))
+        posted_iso = j.get("posted")
+        posted = fmt_posted(posted_iso)
+        posted_date = posted_date_str(posted_iso)
+        company = j.get("company") or ""
         meta = " · ".join(x for x in [
             html.escape(j.get("source", "")),
             posted,
         ] if x)
+        # data-company: normalized (trimmed/lowercased) matching key for the
+        # Companies filter. data-posted-date: UTC calendar date, or "" when
+        # unknown — the date filter treats "" as "keep", mirroring
+        # matches()'s server-side handling of unparseable/missing dates.
         rows.append(f"""
-        <li class="job">
+        <li class="job" data-company="{html.escape(company.strip().lower())}" data-posted-date="{posted_date or ''}">
           <a class="title" href="{html.escape(j.get('url',''))}" target="_blank" rel="noopener">
             {html.escape(j.get('title','') or 'Untitled role')}
           </a>
           <div class="sub">
-            <span class="company">{html.escape(j.get('company','') or '')}</span>
+            <span class="company">{html.escape(company)}</span>
             <span class="loc">{html.escape(j.get('location','') or '')}</span>
             {f'<span class="salary">{html.escape(salary)}</span>' if salary else ''}
           </div>
           <div class="meta">{meta}</div>
         </li>""")
+    if rows:
+        return "\n".join(rows)
+    return f'<li class="empty">{empty_message}</li>'
 
-    empty = '<li class="empty">No matches today. The wire is quiet — check back tomorrow.</li>'
-    body = "\n".join(rows) if rows else empty
+
+def render(jobs, label, max_days_old):
+    now = datetime.now(timezone.utc).astimezone()
+
+    target_jobs = [j for j in jobs if j.get("group") == "target"]
+    other_jobs = [j for j in jobs if j.get("group") != "target"]
+
+    target_body = render_rows(
+        target_jobs, "No target-company matches today. The wire is quiet — check back tomorrow.")
+    other_body = render_rows(
+        other_jobs, "No other matches today. The wire is quiet — check back tomorrow.")
 
     return TEMPLATE.format(
         label=html.escape(label),
         date=now.strftime("%A, %B %-d"),
         updated=now.strftime("%-I:%M %p %Z"),
+        today_utc=datetime.now(timezone.utc).date().isoformat(),
         total=len(jobs),
+        target_count=len(target_jobs),
+        other_count=len(other_jobs),
         window_days=max_days_old,
-        rows=body,
+        target_rows=target_body,
+        other_rows=other_body,
     )
 
 
@@ -425,7 +408,7 @@ TEMPLATE = """<!DOCTYPE html>
     font-family:"Inter",system-ui,sans-serif; line-height:1.5;
     -webkit-font-smoothing:antialiased;
   }}
-  .wrap {{ max-width:760px; margin:0 auto; padding:48px 24px 96px; }}
+  .wrap {{ max-width:980px; margin:0 auto; padding:48px 24px 96px; }}
   header {{ border-bottom:1px solid var(--line); padding-bottom:24px; margin-bottom:8px; }}
   .eyebrow {{
     font-family:"IBM Plex Mono",monospace; font-size:12px; letter-spacing:0.12em;
@@ -440,13 +423,28 @@ TEMPLATE = """<!DOCTYPE html>
     display:flex; flex-wrap:wrap; gap:6px 16px; align-items:center;
   }}
   .status .hot {{ color:var(--signal); font-weight:500; }}
-  .controls {{ display:flex; gap:12px; align-items:center; margin:22px 0 6px; }}
+  .tabs {{ display:flex; gap:0; margin:24px 0 0; border-bottom:1px solid var(--line); }}
+  .tab {{
+    font:inherit; font-family:"Space Grotesk",sans-serif; font-weight:500; font-size:14.5px;
+    background:none; border:none; border-bottom:2px solid transparent; color:var(--muted);
+    padding:10px 4px 12px; margin-right:24px; cursor:pointer;
+    display:flex; align-items:center; gap:8px;
+  }}
+  .tab:hover {{ color:var(--ink); }}
+  .tab.active {{ color:var(--ink); border-bottom-color:var(--accent); }}
+  .tab .count {{
+    font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--muted);
+    background:var(--bg); border:1px solid var(--line); border-radius:999px; padding:1px 7px;
+  }}
+  .tab.active .count {{ color:var(--accent); border-color:var(--accent); }}
+  .controls {{ display:flex; gap:12px; align-items:center; margin:16px 0 6px; }}
   #q {{
     flex:1; padding:9px 12px; border:1px solid var(--line); border-radius:8px;
     font:inherit; font-size:14px; background:var(--surface); color:var(--ink);
   }}
   #q:focus {{ outline:2px solid var(--accent); outline-offset:1px; border-color:transparent; }}
   ul {{ list-style:none; margin:8px 0 0; padding:0; }}
+  .job-list[hidden] {{ display:none; }}
   .job {{ padding:20px 0 18px; border-bottom:1px solid var(--line); }}
   .title {{
     font-family:"Space Grotesk",sans-serif; font-weight:500; font-size:19px;
@@ -470,6 +468,50 @@ TEMPLATE = """<!DOCTYPE html>
     .job {{ animation:rise .4s ease both; }}
     @keyframes rise {{ from {{ opacity:0; transform:translateY(6px); }} }}
   }}
+  .layout {{ display:flex; gap:32px; align-items:flex-start; margin-top:20px; }}
+  .sidebar {{ flex:0 0 220px; width:220px; }}
+  .main {{ flex:1; min-width:0; }}
+  @media (max-width:760px) {{
+    .layout {{ flex-direction:column; }}
+    .sidebar {{ width:100%; flex:0 0 auto; }}
+  }}
+  .date-filter-group {{ display:flex; align-items:center; gap:8px; }}
+  .date-filter-label {{
+    font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--muted);
+    white-space:nowrap;
+  }}
+  #date-filter {{
+    padding:8px 10px; border:1px solid var(--line); border-radius:8px;
+    font:inherit; font-family:"Inter",system-ui,sans-serif; font-size:14px;
+    background:var(--surface); color:var(--ink); cursor:pointer;
+  }}
+  #date-filter:focus {{ outline:2px solid var(--accent); outline-offset:1px; border-color:transparent; }}
+  .company-filter {{
+    border:1px solid var(--line); border-radius:8px; background:var(--surface);
+    padding:14px;
+  }}
+  .company-filter h2 {{
+    font-family:"Space Grotesk",sans-serif; font-weight:500; font-size:13px;
+    letter-spacing:0.04em; text-transform:uppercase; color:var(--muted);
+    margin:0 0 10px;
+  }}
+  .company-filter-list {{
+    max-height:310px; overflow-y:auto; border:1px solid var(--line);
+    border-radius:6px; background:var(--bg); padding:6px 8px;
+  }}
+  .company-filter-row {{
+    display:flex; align-items:center; gap:8px; padding:6px 4px;
+    font-size:13.5px; line-height:1.3; color:var(--ink);
+  }}
+  .company-filter-row input {{ margin:0; accent-color:var(--accent); cursor:pointer; }}
+  .company-filter-row label {{
+    cursor:pointer; flex:1; min-width:0; overflow:hidden;
+    text-overflow:ellipsis; white-space:nowrap;
+  }}
+  .company-filter-empty {{
+    font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--muted);
+    padding:4px 2px;
+  }}
 </style>
 </head>
 <body>
@@ -483,28 +525,152 @@ TEMPLATE = """<!DOCTYPE html>
       </div>
     </header>
 
-    <div class="controls">
-      <input id="q" type="text" placeholder="Filter by title, company, or location…" aria-label="Filter jobs">
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="company-filter">
+          <h2>Companies</h2>
+          <div id="company-filter-list" class="company-filter-list">
+            <p class="company-filter-empty">Loading…</p>
+          </div>
+        </div>
+      </aside>
+
+      <div class="main">
+        <div class="tabs" role="tablist">
+          <button class="tab active" data-tab="target" role="tab" aria-selected="true">
+            Target Companies <span class="count">{target_count}</span>
+          </button>
+          <button class="tab" data-tab="other" role="tab" aria-selected="false">
+            Other Postings <span class="count">{other_count}</span>
+          </button>
+        </div>
+
+        <div class="controls">
+          <input id="q" type="text" placeholder="Filter by title, company, or location…" aria-label="Filter jobs">
+          <div class="date-filter-group">
+            <label class="date-filter-label" for="date-filter">Posted since</label>
+            <input type="date" id="date-filter" max="{today_utc}" aria-label="Show postings since this date">
+          </div>
+        </div>
+
+        <ul id="list-target" class="job-list">
+          {target_rows}
+        </ul>
+        <ul id="list-other" class="job-list" hidden>
+          {other_rows}
+        </ul>
+
+        <footer>Job Radar · Target Companies from your named ATS boards, Other Postings from Adzuna + JSearch broad search, once each morning.</footer>
+      </div>
     </div>
-
-    <ul id="list">
-      {rows}
-    </ul>
-
-    <footer>Job Radar · pulls from your named company boards + a broad Adzuna search, once each morning.</footer>
   </div>
 
 <script>
+  const tabs = Array.from(document.querySelectorAll('.tab'));
+  const panels = {{
+    target: document.getElementById('list-target'),
+    other: document.getElementById('list-other'),
+  }};
+  tabs.forEach(btn => btn.addEventListener('click', () => {{
+    tabs.forEach(b => {{ b.classList.remove('active'); b.setAttribute('aria-selected', 'false'); }});
+    btn.classList.add('active');
+    btn.setAttribute('aria-selected', 'true');
+    Object.entries(panels).forEach(([key, el]) => {{ el.hidden = key !== btn.dataset.tab; }});
+  }}));
+
   const q = document.getElementById('q');
-  const items = Array.from(document.querySelectorAll('#list .job'));
-  function apply() {{
-    const term = q.value.trim().toLowerCase();
-    items.forEach(el => {{
-      const hitText = !term || el.textContent.toLowerCase().includes(term);
-      el.style.display = hitText ? '' : 'none';
-    }});
+  const items = Array.from(document.querySelectorAll('.job-list .job'));
+
+  // Shared filter state: every control (search box, and the ones added
+  // below) writes into this object and then calls applyFilters(). Keeps
+  // the independently-built filters from stepping on each other's DOM
+  // queries or display-toggling logic.
+  const filterState = {{
+    search: '',       // lowercased search term, '' = no filter
+    companies: null,  // Set of selected data-company keys, null/empty = no filter
+    sinceDate: null,  // 'YYYY-MM-DD' string, null = no filter
+  }};
+
+  function computeVisible(el) {{
+    if (filterState.search) {{
+      const text = el.textContent.toLowerCase();
+      if (!text.includes(filterState.search)) return false;
+    }}
+    if (filterState.companies && filterState.companies.size > 0 && !filterState.companies.has(el.dataset.company)) {{
+      return false;
+    }}
+    if (filterState.sinceDate) {{
+      const postedDate = el.dataset.postedDate;
+      // Missing/unparseable posted date: keep, same as everywhere else in
+      // the app that treats an unknown date as "don't filter it out".
+      // ISO 'YYYY-MM-DD' strings compare correctly with plain < / >=.
+      if (postedDate && postedDate < filterState.sinceDate) return false;
+    }}
+    return true;
   }}
-  q.addEventListener('input', apply);
+
+  function applyFilters() {{
+    items.forEach(el => {{ el.style.display = computeVisible(el) ? '' : 'none'; }});
+  }}
+
+  q.addEventListener('input', () => {{
+    filterState.search = q.value.trim().toLowerCase();
+    applyFilters();
+  }});
+
+  const dateFilter = document.getElementById('date-filter');
+  dateFilter.addEventListener('change', () => {{
+    filterState.sinceDate = dateFilter.value || null;
+    applyFilters();
+  }});
+  (function() {{
+    const listEl = document.getElementById('company-filter-list');
+    const seen = new Map(); // data-company key -> human-readable label
+    items.forEach(el => {{
+      const key = el.dataset.company;
+      if (!key || seen.has(key)) return;
+      const companyEl = el.querySelector('.company');
+      const label = companyEl ? companyEl.textContent.trim() : key;
+      seen.set(key, label);
+    }});
+    const companies = Array.from(seen.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+
+    if (companies.length === 0) {{
+      listEl.innerHTML = '<p class="company-filter-empty">No companies</p>';
+      return;
+    }}
+
+    filterState.companies = new Set();
+    listEl.innerHTML = '';
+
+    companies.forEach(([key, label], i) => {{
+      const row = document.createElement('div');
+      row.className = 'company-filter-row';
+
+      const id = 'company-filter-' + i;
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.id = id;
+      checkbox.value = key;
+
+      const labelNode = document.createElement('label');
+      labelNode.setAttribute('for', id);
+      labelNode.textContent = label;
+
+      checkbox.addEventListener('change', () => {{
+        if (checkbox.checked) {{
+          filterState.companies.add(key);
+        }} else {{
+          filterState.companies.delete(key);
+        }}
+        applyFilters();
+      }});
+
+      row.appendChild(checkbox);
+      row.appendChild(labelNode);
+      listEl.appendChild(row);
+    }});
+  }})();
 </script>
 </body>
 </html>"""
@@ -552,15 +718,36 @@ def main():
 
     raw = []
 
+    # "group" marks which dashboard tab a job belongs to: postings from the
+    # named-company ATS boards are "target" (Target Companies tab); postings
+    # from the broad aggregators (Adzuna, JSearch) are "other" (Other
+    # Postings tab). Cross-source dedupe below runs ATS boards first, so a
+    # job appearing in both an ATS board and an aggregator keeps its
+    # "target" group — the specific company match wins over the generic one.
+    ats = cfg.get("ats_map", {})
+    if ats.get("enabled", True):
+        print("Fetching named-company ATS boards…")
+        csv_path = ROOT / ats["csv"] if ats.get("csv") else None
+        ats_jobs = get_all_ats_jobs(csv_path)
+        for j in ats_jobs:
+            j["group"] = "target"
+        raw += ats_jobs
+
     adz = cfg.get("adzuna", {})
     if adz.get("enabled"):
         print("Fetching broad search (Adzuna)…")
-        raw += fetch_adzuna(adz, criteria)
+        adzuna_jobs = fetch_adzuna(adz, criteria)
+        for j in adzuna_jobs:
+            j["group"] = "other"
+        raw += adzuna_jobs
 
     js = cfg.get("jsearch", {})
     if js.get("enabled"):
         print("Fetching broad search (JSearch)…")
-        raw += fetch_jsearch(js, criteria)
+        jsearch_jobs = fetch_jsearch(js, criteria)
+        for j in jsearch_jobs:
+            j["group"] = "other"
+        raw += jsearch_jobs
 
     # Guard: if every source came back empty, something upstream failed
     # (rate limit, expired key, API change). Don't publish a blank
