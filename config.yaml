@@ -3,9 +3,23 @@
 #  tech companies + internal digital-product roles.
 # ─────────────────────────────────────────────────────────────
 
-label: "Product Operations — NYC"
+label: "Caleb's Get Rich Radar"
 
 location: "New York"
+# Other ways postings phrase "New York" that a plain "New York" substring
+# check misses — boroughs and common abbreviations. Matched as whole
+# words/phrases (see location_ok() in job_check.py), not a raw substring,
+# so short entries like "queens" don't false-match inside an unrelated word
+# like "Queensland".
+location_aliases:
+  - "new york"
+  - "new york city"
+  - "nyc"
+  - "manhattan"
+  - "brooklyn"
+  - "queens"
+  - "bronx"
+  - "staten island"
 remote_ok: true
 max_days_old: 30
 
@@ -27,14 +41,21 @@ adzuna:
   pages: 2
 
 # Broad search via JSearch (Google for Jobs — surfaces LinkedIn, Indeed,
-# Glassdoor, etc). Free tier is ~200 calls/month. The search query is no
-# longer set here either — job_check.py builds one combined OR query from
-# title_rules below (plus `location` above), so it's always one API call
-# per run regardless of how many title_rules exist. `pages` is the only
-# knob that changes call cost, since it's bundled into that single call.
+# Glassdoor, etc). Free tier is ~200 calls/month. Each query is 1 API call
+# regardless of `pages` (the API bundles that many pages of results into
+# one response) — so call cost scales with the number of queries, not
+# pages. Keep the query list short; one daily run = len(queries) calls.
+# The query field is natural-language-only (confirmed empirically) — it
+# does not support OR/boolean syntax, so broadening coverage means adding
+# more short, plain-language queries here, not combining terms into one.
 jsearch:
   enabled: true
-  pages: 50           # pages of results per query, returned in one call
+  queries:
+    - "product operations in new york"
+    - "operations manager in new york"
+    - "forward deployed implementation manager in new york"
+    - "customer success solutions consultant in new york"
+  pages: 10           # pages of results per query, returned in one call
   country: "us"
 
 # Keep a posting only if its description mentions at least one of these

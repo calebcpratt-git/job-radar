@@ -169,57 +169,51 @@ def fetch_jsearch(cfg, criteria):
     else:
         date_posted = "month"
 
-    # Derived from title_rules (see title_rule_words) rather than a hardcoded
-    # phrase, so the query covers the same universe of titles title_rules
-    # filters for locally — otherwise Google for Jobs would never surface a
-    # posting (e.g. "Forward Deployed Strategist") for title_rules to keep.
-    # One combined OR query, not one query per rule: JSearch bills per query
-    # regardless of num_pages, so query count stays fixed and cfg["pages"]
-    # is the knob for how deep into the broadened result set to fetch.
-    words = title_rule_words(criteria.get("title_rules"))
-    query_location = criteria.get("location") or ""
-    query = f"({' OR '.join(words)})" if words else "jobs"
-    if query_location:
-        query += f" in {query_location}"
-
+    # JSearch's `query` is natural-language-only (confirmed against Google
+    # for Jobs behavior) — it does not parse OR/parentheses as boolean logic,
+    # so a single query combining every title_rules term actually returns
+    # *fewer*, less relevant results than a plain short phrase. Real coverage
+    # comes from multiple separate natural-language queries in config.yaml
+    # instead (one API call each, billed per query regardless of `pages`).
     out = []
-    # search-v2 takes a page *count* (num_pages) and returns that many
-    # pages of results in a single call — it does not take a page
-    # *number*, so one call covers cfg["pages"] pages.
-    params = {
-        "query": query,
-        "num_pages": cfg.get("pages", 1),
-        "country": cfg.get("country", "us"),
-        "date_posted": date_posted,
-    }
-    try:
-        data = _get(JSEARCH_URL, params=params, headers={"x-api-key": api_key})
-    except Exception as e:
-        print(f"  ! JSearch query failed: {e}", file=sys.stderr)
-        data = {}
-    # search-v2 nests results under data.jobs (plus a data.cursor for
-    # paging beyond num_pages), unlike the flat list some JSearch docs
-    # describe.
-    results = (data.get("data") or {}).get("jobs") or []
-    for j in results:
-        city = j.get("job_city") or ""
-        state = j.get("job_state") or ""
-        location = ", ".join(p for p in (city, state) if p)
-        if j.get("job_is_remote"):
-            location = (location + " (Remote)").strip()
-        publisher = j.get("job_publisher") or "JSearch"
-        out.append({
-            "id": f"js:{j.get('job_id')}",
-            "title": j.get("job_title") or "",
-            "company": j.get("employer_name") or "",
-            "location": location,
-            "url": j.get("job_apply_link") or j.get("job_google_link") or "",
-            "salary_min": j.get("job_min_salary"),
-            "salary_max": j.get("job_max_salary"),
-            "posted": j.get("job_posted_at_datetime_utc"),
-            "description": j.get("job_description") or "",
-            "source": f"JSearch ({publisher})",
-        })
+    for query in cfg.get("queries", []):
+        # search-v2 takes a page *count* (num_pages) and returns that many
+        # pages of results in a single call — it does not take a page
+        # *number*, so one call per query covers cfg["pages"] pages.
+        params = {
+            "query": query,
+            "num_pages": cfg.get("pages", 1),
+            "country": cfg.get("country", "us"),
+            "date_posted": date_posted,
+        }
+        try:
+            data = _get(JSEARCH_URL, params=params, headers={"x-api-key": api_key})
+        except Exception as e:
+            print(f"  ! JSearch query '{query}' failed: {e}", file=sys.stderr)
+            continue
+        # search-v2 nests results under data.jobs (plus a data.cursor for
+        # paging beyond num_pages), unlike the flat list some JSearch docs
+        # describe.
+        results = (data.get("data") or {}).get("jobs") or []
+        for j in results:
+            city = j.get("job_city") or ""
+            state = j.get("job_state") or ""
+            location = ", ".join(p for p in (city, state) if p)
+            if j.get("job_is_remote"):
+                location = (location + " (Remote)").strip()
+            publisher = j.get("job_publisher") or "JSearch"
+            out.append({
+                "id": f"js:{j.get('job_id')}",
+                "title": j.get("job_title") or "",
+                "company": j.get("employer_name") or "",
+                "location": location,
+                "url": j.get("job_apply_link") or j.get("job_google_link") or "",
+                "salary_min": j.get("job_min_salary"),
+                "salary_max": j.get("job_max_salary"),
+                "posted": j.get("job_posted_at_datetime_utc"),
+                "description": j.get("job_description") or "",
+                "source": f"JSearch ({publisher})",
+            })
     print(f"  · JSearch broad search: {len(out)} postings")
     return out
 
@@ -229,6 +223,58 @@ def fetch_jsearch(cfg, criteria):
 # --------------------------------------------------------------------------- #
 def looks_remote(text):
     return "remote" in (text or "").lower()
+
+
+def _words(text):
+    return set(re.findall(r"[a-z]+", (text or "").lower()))
+
+
+# Generic words that show up in a "Remote" location string without tying the
+# job to any specific place ("Remote (United States)", "Remote - US",
+# "US Remote") — used to tell a location-agnostic remote posting apart from
+# one anchored to a specific other city/country ("Remote - India").
+_REMOTE_FILLER_WORDS = {
+    "remote", "us", "usa", "u", "s", "a", "united", "states", "the", "in", "only",
+}
+
+
+def _mentions_city(text, aliases):
+    """Whole-word/phrase match against a list of alias strings (e.g. NYC
+    borough names) — not a plain substring check, so a short alias like
+    "queens" doesn't false-match inside an unrelated word like
+    "Queensland"."""
+    if not aliases or not text:
+        return False
+    pattern = r"\b(?:" + "|".join(re.escape(a) for a in aliases) + r")\b"
+    return re.search(pattern, text) is not None
+
+
+def location_ok(job, criteria):
+    loc_filter = (criteria.get("location") or "").lower().strip()
+    if not loc_filter:
+        return True
+    job_loc = (job.get("location") or "").lower()
+    haystack = job_loc + " " + (job.get("location_area") or "").lower()
+    aliases = [str(a).lower() for a in (criteria.get("location_aliases") or [loc_filter])]
+    is_target_city = _mentions_city(haystack, aliases)
+    is_remote = looks_remote(job_loc)
+
+    if job.get("group") == "target":
+        if is_target_city:
+            # A posting naming New York (or a borough/alias) is kept
+            # regardless of a remote flag — "New York (Remote)" means the
+            # NY office is an option, not that NY is irrelevant.
+            return True
+        if is_remote:
+            # Fully remote with no other city/country named (e.g. "Remote",
+            # "Remote (United States)") might still be workable from the NY
+            # office, so keep it. Remote tied to a different specific place
+            # ("Remote - India", "Madrid (Remote)") is excluded.
+            return not (_words(job_loc) - _REMOTE_FILLER_WORDS)
+        return False
+    else:
+        remote_ok = criteria.get("remote_ok", True) and is_remote
+        return is_target_city or remote_ok
 
 
 def matches(job, criteria):
@@ -257,13 +303,8 @@ def matches(job, criteria):
         if desc and not any(s.lower() in desc for s in signals):
             return False
 
-    loc_filter = (criteria.get("location") or "").lower().strip()
-    if loc_filter:
-        job_loc = (job.get("location") or "").lower()
-        haystack = job_loc + " " + (job.get("location_area") or "").lower()
-        remote_ok = criteria.get("remote_ok", True) and looks_remote(job_loc)
-        if loc_filter not in haystack and not remote_ok:
-            return False
+    if not location_ok(job, criteria):
+        return False
 
     max_days = criteria.get("max_days_old")
     posted = job.get("posted")
@@ -379,7 +420,7 @@ def render(jobs, label, max_days_old):
         date=now.strftime("%A, %B %-d"),
         updated=now.strftime("%-I:%M %p %Z"),
         today_utc=datetime.now(timezone.utc).date().isoformat(),
-        total=len(jobs),
+        total=len(target_jobs),
         target_count=len(target_jobs),
         other_count=len(other_jobs),
         window_days=max_days_old,
@@ -540,9 +581,6 @@ TEMPLATE = """<!DOCTYPE html>
           <button class="tab active" data-tab="target" role="tab" aria-selected="true">
             Target Companies <span class="count">{target_count}</span>
           </button>
-          <button class="tab" data-tab="other" role="tab" aria-selected="false">
-            Other Postings <span class="count">{other_count}</span>
-          </button>
         </div>
 
         <div class="controls">
@@ -556,11 +594,8 @@ TEMPLATE = """<!DOCTYPE html>
         <ul id="list-target" class="job-list">
           {target_rows}
         </ul>
-        <ul id="list-other" class="job-list" hidden>
-          {other_rows}
-        </ul>
 
-        <footer>Job Radar · Target Companies from your named ATS boards, Other Postings from Adzuna + JSearch broad search, once each morning.</footer>
+        <footer>Job Radar · Target Companies from your named ATS boards, once each morning.</footer>
       </div>
     </div>
   </div>
@@ -569,14 +604,7 @@ TEMPLATE = """<!DOCTYPE html>
   const tabs = Array.from(document.querySelectorAll('.tab'));
   const panels = {{
     target: document.getElementById('list-target'),
-    other: document.getElementById('list-other'),
   }};
-  tabs.forEach(btn => btn.addEventListener('click', () => {{
-    tabs.forEach(b => {{ b.classList.remove('active'); b.setAttribute('aria-selected', 'false'); }});
-    btn.classList.add('active');
-    btn.setAttribute('aria-selected', 'true');
-    Object.entries(panels).forEach(([key, el]) => {{ el.hidden = key !== btn.dataset.tab; }});
-  }}));
 
   const q = document.getElementById('q');
   const items = Array.from(document.querySelectorAll('.job-list .job'));
@@ -623,10 +651,16 @@ TEMPLATE = """<!DOCTYPE html>
     filterState.sinceDate = dateFilter.value || null;
     applyFilters();
   }});
-  (function() {{
-    const listEl = document.getElementById('company-filter-list');
+  const companyFilterListEl = document.getElementById('company-filter-list');
+
+  // Rebuilds the sidebar checkbox list from only the jobs in the given tab's
+  // panel, so it never offers a company that isn't on the open tab. Called
+  // on load and on every tab switch; resets any active company selection
+  // since the previous tab's checked companies may not exist on this one.
+  function buildCompanyFilter(tabKey) {{
+    const tabItems = Array.from(panels[tabKey].querySelectorAll('.job'));
     const seen = new Map(); // data-company key -> human-readable label
-    items.forEach(el => {{
+    tabItems.forEach(el => {{
       const key = el.dataset.company;
       if (!key || seen.has(key)) return;
       const companyEl = el.querySelector('.company');
@@ -635,13 +669,14 @@ TEMPLATE = """<!DOCTYPE html>
     }});
     const companies = Array.from(seen.entries()).sort((a, b) => a[1].localeCompare(b[1]));
 
+    filterState.companies = new Set();
+    companyFilterListEl.innerHTML = '';
+
     if (companies.length === 0) {{
-      listEl.innerHTML = '<p class="company-filter-empty">No companies</p>';
+      companyFilterListEl.innerHTML = '<p class="company-filter-empty">No companies</p>';
+      applyFilters();
       return;
     }}
-
-    filterState.companies = new Set();
-    listEl.innerHTML = '';
 
     companies.forEach(([key, label], i) => {{
       const row = document.createElement('div');
@@ -668,9 +703,22 @@ TEMPLATE = """<!DOCTYPE html>
 
       row.appendChild(checkbox);
       row.appendChild(labelNode);
-      listEl.appendChild(row);
+      companyFilterListEl.appendChild(row);
     }});
-  }})();
+
+    applyFilters();
+  }}
+
+  tabs.forEach(btn => btn.addEventListener('click', () => {{
+    tabs.forEach(b => {{ b.classList.remove('active'); b.setAttribute('aria-selected', 'false'); }});
+    btn.classList.add('active');
+    btn.setAttribute('aria-selected', 'true');
+    const tabKey = btn.dataset.tab;
+    Object.entries(panels).forEach(([key, el]) => {{ el.hidden = key !== tabKey; }});
+    buildCompanyFilter(tabKey);
+  }}));
+
+  buildCompanyFilter('target');
 </script>
 </body>
 </html>"""
@@ -714,6 +762,7 @@ def main():
         "max_days_old": cfg.get("max_days_old"),
         "digital_signals": cfg.get("digital_signals") or [],
         "title_rules": cfg.get("title_rules") or [],
+        "location_aliases": cfg.get("location_aliases") or [],
     }
 
     raw = []
