@@ -404,7 +404,7 @@ def render_rows(jobs, empty_message):
     return f'<li class="empty">{empty_message}</li>'
 
 
-def render(jobs, label, max_days_old):
+def render(jobs, label):
     now = datetime.now(timezone.utc).astimezone()
 
     target_jobs = [j for j in jobs if j.get("group") == "target"]
@@ -423,7 +423,6 @@ def render(jobs, label, max_days_old):
         total=len(target_jobs),
         target_count=len(target_jobs),
         other_count=len(other_jobs),
-        window_days=max_days_old,
         target_rows=target_body,
         other_rows=other_body,
     )
@@ -561,7 +560,7 @@ TEMPLATE = """<!DOCTYPE html>
       <p class="eyebrow">Morning brief · {date}</p>
       <h1>{label}</h1>
       <div class="status">
-        <span class="hot">{total} matches · last {window_days} days</span>
+        <span class="hot" id="match-count">{total} matches</span>
         <span>updated {updated}</span>
       </div>
     </header>
@@ -608,6 +607,7 @@ TEMPLATE = """<!DOCTYPE html>
 
   const q = document.getElementById('q');
   const items = Array.from(document.querySelectorAll('.job-list .job'));
+  const matchCountEl = document.getElementById('match-count');
 
   // Shared filter state: every control (search box, and the ones added
   // below) writes into this object and then calls applyFilters(). Keeps
@@ -638,7 +638,13 @@ TEMPLATE = """<!DOCTYPE html>
   }}
 
   function applyFilters() {{
-    items.forEach(el => {{ el.style.display = computeVisible(el) ? '' : 'none'; }});
+    let visibleCount = 0;
+    items.forEach(el => {{
+      const visible = computeVisible(el);
+      el.style.display = visible ? '' : 'none';
+      if (visible) visibleCount++;
+    }});
+    matchCountEl.textContent = visibleCount + ' matches';
   }}
 
   q.addEventListener('input', () => {{
@@ -813,8 +819,14 @@ def main():
         mark_dashboard_stale()
         sys.exit(1)
 
-    # Filter
-    kept = [j for j in raw if matches(j, criteria)]
+    # Filter — Target Companies (named-company ATS boards) show all active
+    # postings from those companies regardless of age; max_days_old only
+    # applies to the broad-aggregator "other" group.
+    target_criteria = dict(criteria, max_days_old=None)
+    kept = [
+        j for j in raw
+        if matches(j, target_criteria if j.get("group") == "target" else criteria)
+    ]
 
     # Dedupe (prefer first occurrence; ATS boards win over aggregator duplicates)
     seen_ids, deduped = set(), []
@@ -843,7 +855,7 @@ def main():
 
     label = cfg.get("label", "Job Radar")
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    OUT_PATH.write_text(render(deduped, label, criteria.get("max_days_old")))
+    OUT_PATH.write_text(render(deduped, label))
 
     print(f"\nDone: {len(deduped)} matches. Dashboard → {OUT_PATH}")
 
