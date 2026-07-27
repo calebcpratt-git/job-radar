@@ -1,0 +1,22 @@
+# Extra accomplishments and experiences beyond master_resume.yaml, for the
+# tailoring generator (api/generate.py) to draw on when they're relevant to
+# a specific posting. The generator may rephrase wording per posting but
+# must never invent facts beyond what's written here or in
+# master_resume.yaml.
+#
+# Add entries by hand, or just tell Claude Code about something you did and
+# have it add the entry for you. Keep each note factual and specific (what
+# you did + the concrete outcome/scope), the same way the bullets in
+# master_resume.yaml are written — that's what lets the generator rephrase
+# it convincingly without stretching the truth.
+
+by_company:
+  playbook_sports: []
+  revolution_learning: []
+  interscope_geffen: []
+  neuberger_berman: []
+  ltx_ventures: []
+
+# Accomplishments not tied to a specific role above (e.g. side projects,
+# volunteer work, coursework) that could still be relevant to some postings.
+general: []

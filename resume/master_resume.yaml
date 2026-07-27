@@ -1,0 +1,165 @@
+# Master resume data — the factual source of truth for the auto-tailored
+# resume feature (see api/generate.py). Bullets here are facts, not final
+# copy: the generator may rephrase them per job posting but must not invent
+# accomplishments, numbers, or responsibilities beyond what's written here
+# and in resume_experience_bank.yaml.
+#
+# Reconciled from two parallel resume versions Caleb had been maintaining
+# (one with the Association GM project + no Tech Business Fellows, one with
+# Tech Business Fellows + no project, and two slightly different phrasings
+# of the Revolution Learning title) — both are kept here, and the generator
+# picks between the two optional blocks per posting. See optional_blocks
+# below.
+
+header:
+  name: "Caleb Pratt"
+  email: "calebcpratt@gmail.com"
+  phone: "(281) 787-7334"
+
+experience:
+  - company: "Playbook Sports"
+    subtitle: "Founder In-Training Program"
+    location: "Hoboken, NJ"
+    start: "August 2025"
+    end: "May 2026"
+    roles:
+      - id: "playbook_csm"
+        title: "Customer Success and Product Manager"
+        start: "December 2025"
+        end: "May 2026"
+        bullet_target: 6
+        bullets:
+          - "Partnered with engineering to design and deliver new product features using agile epics and sprint-based development cycles"
+          - "Contributed to product strategy by synthesizing input from customer success, sales, and engineering to set priorities"
+          - "Designed and managed the development of 40+ complex feature stories, translating business needs into actionable specs"
+          - "Managed a portfolio of active clients across the full lifecycle, from onboarding and system integration through contract renewal"
+          - "Served as the primary point of contact for clients, surfacing needs and ensuring maximum value extraction from the platform"
+          - "Onboarded 15 clients projected to process $4M annually through the platform, ensuring each account was fully configured and live"
+      - id: "playbook_partnerships"
+        title: "Strategic Partnerships and Marketing Associate"
+        start: "August 2025"
+        end: "December 2025"
+        bullet_target: 3
+        bullets:
+          - "Conducted prospective client research and direct cold outreach, supporting the full sales cycle from lead generation through close"
+          - "Developed high-leverage outreach and research workflows to scale customer acquisition and drive top-of-funnel growth"
+          - "Established new outbound marketing strategies that drove a sustained 60% increase in active pipeline generation"
+
+  - company: "Revolution Learning"
+    subtitle: "Educational Technology and Data Consultant"
+    subtitle_alt: "Educational Data and Programs Consultant"
+    location: "Brooklyn, NY"
+    start: "December 2023"
+    end: "August 2025"
+    roles:
+      - id: "revolution_learning"
+        title: null
+        bullet_target: 5
+        bullets:
+          - "Directed all data management, analysis, and reporting efforts for the lower and middle school divisions of the Yeshivah of Flatbush"
+          - "Owned and operated various administrative tech systems for supplemental instruction, admissions processing, and other functions"
+          - "Collaborated with other client schools to share YOF best practices and transferable data systems where applicable"
+          - "Executed new technology-backed programs such as managed summer work, informed services, and digital standardized testing"
+          - "Facilitated blended-learning classroom structures by optimizing class logistics and providing needed instructional support"
+
+  - company: "Interscope Geffen A&M Records"
+    subtitle: "Business Intelligence Analyst"
+    location: "Los Angeles, CA"
+    start: "June 2022"
+    end: "June 2023"
+    roles:
+      - id: "interscope"
+        title: null
+        bullet_target: 4
+        bullets:
+          - "Developed and maintained automated reporting dashboards, managing all data cleansing, ETL, and visualization processes"
+          - "Procured and integrated new data-driven app systems based on knowledge of revenue and marketing processes and needs"
+          - "Conducted proprietary research about all music verticals and consumption methods using standard industry data sources"
+          - "Reported real-time consumption trends for key IGA titles to label executives on a daily and weekly basis"
+
+  - company: "Neuberger Berman"
+    subtitle: "Senior Automation and Digitization Intern"
+    location: "New York, NY"
+    start: "March 2021"
+    end: "August 2021"
+    roles:
+      - id: "neuberger"
+        title: null
+        bullet_target: 2
+        bullets:
+          - "Contributed to all aspects of the development of a data warehouse for the company's alternative investment business lines"
+          - "Interacted with database prototypes using SQL queries, pivot tables, and other tools while prepping them for ETL processes"
+
+  - company: "LTX Ventures"
+    subtitle: "Private Equity Intern"
+    location: "Austin, TX"
+    start: "July 2020"
+    end: "September 2020"
+    roles:
+      - id: "ltx"
+        title: null
+        bullet_target: 1
+        bullets:
+          - "Sourced, performed preliminary modeling for, and evaluated prospective target software companies"
+
+education:
+  - school: "The University of Texas at Austin"
+    degree: "Bachelor of Business Administration, Management Information Systems"
+    minor: "Accounting"
+    honors: "Overall GPA: 3.80 (University Honors – 6 Semesters)"
+    date: "May 2022"
+
+# Exactly one of these (or neither) gets included per generated resume —
+# the two source resumes never showed both at once, which is what kept
+# both versions at one page. api/generate.py asks Claude to choose based
+# on relevance to the posting.
+optional_blocks:
+  projects:
+    relevance_hint: "technical, product, or engineering-leaning roles"
+    entries:
+      - name: "Association GM – NBA Salary Cap & Trade Modeling Tool"
+        date: "June 2026 - Present"
+        link: "github.com/calebcpratt-git/nba-roster-builder"
+        bullets:
+          - "Full-stack app that models real-time salary cap math, trade legality, and contract scenarios under current CBA rules"
+  tech_business_fellows:
+    relevance_hint: "general business, leadership, or generalist roles"
+    entries:
+      - org: "Technology Business Fellows"
+        role: "Member"
+        dates: "Fall 2020 – Spring 2022"
+        bullets:
+          - "Participated in a technology business strategy training program as 1 of 11 students selected from the class of 2020"
+
+# Always included — appears on both source resumes.
+leadership:
+  entries:
+    - org: "Kappa Alpha Order"
+      role: "Member"
+      dates: "Fall 2018 – Spring 2022"
+      subroles:
+        - title: "Treasurer"
+          dates: "Fall 2020 – Fall 2021"
+          bullets:
+            - "Managed all financial planning, dues collection, budgeting, and related communications for a $1.5 million annual chapter budget"
+
+additional:
+  computer_skills:
+    - "Python"
+    - "SQL"
+    - "v0"
+    - "Figma"
+    - "Jira"
+    - "Tableau"
+    - "Alteryx"
+    - "R"
+    - "Google Apps Script + Data Studio"
+    - "CRM Systems (HubSpot)"
+  interests:
+    - "Piano"
+    - "Guitar"
+    - "Hip-Hop"
+    - "Mitch Albom and Nassim Taleb books"
+    - "Rec Basketball"
+    - "Backgammon"
+  work_eligibility: "Eligible to work in the U.S. with no restrictions"

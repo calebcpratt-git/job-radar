@@ -2,6 +2,11 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "outputDirectory": "docs",
-  "buildCommand": false,
-  "installCommand": false
+  "buildCommand": null,
+  "installCommand": null,
+  "functions": {
+    "api/generate.py": {
+      "maxDuration": 60
+    }
+  }
 }
