@@ -3,10 +3,5 @@
   "framework": null,
   "outputDirectory": "docs",
   "buildCommand": null,
-  "installCommand": null,
-  "functions": {
-    "api/generate.py": {
-      "maxDuration": 60
-    }
-  }
+  "installCommand": null
 }
