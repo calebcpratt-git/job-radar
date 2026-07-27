@@ -20,6 +20,7 @@ import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import urlencode
 
 import requests
 import yaml
@@ -49,6 +50,13 @@ _load_dotenv()
 
 HTTP_TIMEOUT = 20
 USER_AGENT = "job-radar/1.0 (personal job search)"
+
+# The dashboard is mirrored on GitHub Pages (static) and Vercel (static +
+# the /api/generate resume-tailoring function) — see SKILL.md's Deployment
+# section. Only Vercel can run the function, so the "Tailor Resume" link
+# always points at the Vercel domain regardless of which mirror is being
+# viewed.
+RESUME_API_BASE = "https://get-rich-radar-team-caleb1.vercel.app/api/generate"
 
 
 # --------------------------------------------------------------------------- #
@@ -387,6 +395,17 @@ def render_rows(jobs, empty_message):
         # Companies filter. data-posted-date: UTC calendar date, or "" when
         # unknown — the date filter treats "" as "keep", mirroring
         # matches()'s server-side handling of unparseable/missing dates.
+        #
+        # tailor_href: a plain GET link to the Vercel resume-generator
+        # function, params baked in at render time. This is a static <a>,
+        # not JS — clicking it fires exactly one request for exactly this
+        # job; nothing runs for any other posting or on page load.
+        tailor_href = RESUME_API_BASE + "?" + urlencode({
+            "title": j.get("title", "") or "",
+            "company": company,
+            "location": j.get("location", "") or "",
+            "url": j.get("url", "") or "",
+        })
         rows.append(f"""
         <li class="job" data-company="{html.escape(company.strip().lower())}" data-posted-date="{posted_date or ''}">
           <a class="title" href="{html.escape(j.get('url',''))}" target="_blank" rel="noopener">
@@ -397,7 +416,9 @@ def render_rows(jobs, empty_message):
             <span class="loc">{html.escape(j.get('location','') or '')}</span>
             {f'<span class="salary">{html.escape(salary)}</span>' if salary else ''}
           </div>
-          <div class="meta">{meta}</div>
+          <div class="meta">{meta}
+            <a class="tailor-btn" href="{html.escape(tailor_href)}" target="_blank" rel="noopener">Tailor resume ↗</a>
+          </div>
         </li>""")
     if rows:
         return "\n".join(rows)
@@ -498,7 +519,15 @@ TEMPLATE = """<!DOCTYPE html>
   .meta {{
     font-family:"IBM Plex Mono",monospace; font-size:11.5px; letter-spacing:0.04em;
     color:var(--muted); text-transform:uppercase;
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
   }}
+  .tailor-btn {{
+    font-family:"Inter",system-ui,sans-serif; font-size:12px; text-transform:none;
+    letter-spacing:normal; color:var(--accent); text-decoration:none;
+    border:1px solid var(--accent); border-radius:999px; padding:3px 10px;
+    white-space:nowrap;
+  }}
+  .tailor-btn:hover {{ background:var(--accent); color:#fff; }}
   .empty {{ padding:56px 0; text-align:center; color:var(--muted); font-size:15px; }}
   footer {{
     margin-top:40px; font-family:"IBM Plex Mono",monospace; font-size:11px;

@@ -31,6 +31,12 @@ README-only changes are exempt.
   prefer making behavior configurable there over hardcoding in job_check.py.
 - Sources must fail soft: a broken API or missing key produces a stderr
   warning, never a crash that kills the whole run.
-- No paid services, servers, or databases — GitHub Actions + Pages only.
+- No paid services, servers, or databases for the job-fetching pipeline
+  (job_check.py, ats_fetch.py) — GitHub Actions + Pages only. The one
+  exception is the resume-tailoring feature: api/generate.py is a single
+  Vercel Python serverless function that calls the (paid) Anthropic API,
+  triggered on demand by the "Tailor resume" link next to each posting —
+  see SKILL.md's "Resume tailoring" section before touching it. Don't
+  extend this exception to anything else without discussing it first.
 - The workflow file that runs is .github/workflows/job-check.yml; the
   job-check.yml at the repo root is an inert stray duplicate.
