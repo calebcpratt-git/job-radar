@@ -29,17 +29,23 @@ from anthropic import Anthropic, APIError
 
 RESUME_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "resume")
 
-# Both hosts the dashboard is actually served from (see SKILL.md's
-# "Deployment & operations" section) — clicking the link from either must
-# work. This is abuse-deterrence, not real auth: a Referer header is
-# trivially spoofable outside a browser. It stops a random crawler or a
-# third-party page from silently burning API spend, nothing more; set a
-# spend limit on the Anthropic API key for real protection.
+# Every host the dashboard is actually served from (see SKILL.md's
+# "Deployment & operations" section) — clicking the link from any of them
+# must work. Vercel assigns a project several aliases for the same
+# deployment (short form, team-scoped form, git-branch form); all of them
+# need to be here, not just the one that happens to be documented.
+# This is abuse-deterrence, not real auth: a Referer header is trivially
+# spoofable outside a browser. It stops a random crawler or a third-party
+# page from silently burning API spend, nothing more; set a spend limit on
+# the Anthropic API key for real protection.
 ALLOWED_REFERER_HOSTS = {
     h.strip()
     for h in os.environ.get(
         "ALLOWED_REFERER_HOSTS",
-        "calebcpratt-git.github.io,get-rich-radar-team-caleb1.vercel.app",
+        "calebcpratt-git.github.io,"
+        "get-rich-radar.vercel.app,"
+        "get-rich-radar-team-caleb1.vercel.app,"
+        "get-rich-radar-git-main-team-caleb1.vercel.app",
     ).split(",")
     if h.strip()
 }
