@@ -29,8 +29,17 @@ from ats_fetch import get_all_ats_jobs
 
 ROOT = Path(__file__).resolve().parent
 CONFIG_PATH = ROOT / "config.yaml"
-OUT_PATH = ROOT / "docs" / "index.html"
 ENV_PATH = ROOT / ".env"
+
+# GitHub Actions sets this automatically on every run. Locally it's unset,
+# so local test runs write to a gitignored preview file instead of the
+# real dashboard — this is what stops docs/index.html from ever being
+# regenerated on any branch except by the daily bot on main.
+if os.environ.get("GITHUB_ACTIONS") == "true":
+    OUT_PATH = ROOT / "docs" / "index.html"
+else:
+    OUT_PATH = ROOT / "docs" / "preview.html"
+    print(f"Local run detected — writing to {OUT_PATH.name} instead of the real dashboard.", file=sys.stderr)
 
 
 def _load_dotenv():
