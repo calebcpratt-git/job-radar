@@ -55,8 +55,10 @@ USER_AGENT = "job-radar/1.0 (personal job search)"
 # the /api/generate resume-tailoring function) — see SKILL.md's Deployment
 # section. Only Vercel can run the function, so the "Tailor Resume" link
 # always points at the Vercel domain regardless of which mirror is being
-# viewed.
-RESUME_API_BASE = "https://get-rich-radar-team-caleb1.vercel.app/api/generate"
+# viewed. get-rich-radar.vercel.app is the short canonical alias Vercel
+# assigned the project; api/generate.py's Referer allowlist covers this
+# and the other aliases Vercel also serves the same deployment from.
+RESUME_API_BASE = "https://get-rich-radar.vercel.app/api/generate"
 
 
 # --------------------------------------------------------------------------- #
