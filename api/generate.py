@@ -72,10 +72,13 @@ ROLE_KEYS = [
 RESUME_SCHEMA = {
     "type": "object",
     "properties": {
+        **{f"{key}_reasoning": {"type": "string"} for key in ROLE_KEYS},
         **{f"{key}_bullets": {"type": "array", "items": {"type": "string"}} for key in ROLE_KEYS},
         "optional_block": {"type": "string", "enum": ["projects", "tech_business_fellows", "none"]},
     },
-    "required": [f"{key}_bullets" for key in ROLE_KEYS] + ["optional_block"],
+    "required": [f"{key}_reasoning" for key in ROLE_KEYS]
+    + [f"{key}_bullets" for key in ROLE_KEYS]
+    + ["optional_block"],
     "additionalProperties": False,
 }
 
@@ -146,34 +149,76 @@ def _build_prompt(master, bank, title, company, location, description):
     else:
         posting_lines.append("\n(No posting description available — tailor based on title/company/location only.)")
 
-    user_content = f"""TARGET JOB POSTING
+    user_content = f"""<target_posting>
 {chr(10).join(posting_lines)}
+</target_posting>
 
-SOURCE FACTS — each role's true accomplishments (a pool to rephrase from, not a script to copy verbatim):
+<source_facts>
+Each role's true accomplishments — a pool to rephrase from, not a script to copy verbatim:
 {chr(10).join(facts_lines)}
+</source_facts>
 
-EXTRA ACCOMPLISHMENTS NOT ON THE BASE RESUME (use only if relevant to this posting):
+<extra_accomplishments>
+Not on the base resume. Use only if relevant to this posting:
 {chr(10).join(bank_lines) if bank_lines else "  (none yet)"}
+</extra_accomplishments>
 
-TWO OPTIONAL SECTIONS — pick exactly one, or "none":
+<optional_sections>
+Pick exactly one, or "none":
   - "projects": {project['name']} — {project['bullets'][0]} (best for: {optional['projects']['relevance_hint']})
   - "tech_business_fellows": {tbf['org']} — {tbf['bullets'][0]} (best for: {optional['tech_business_fellows']['relevance_hint']})
+</optional_sections>
 """
     return user_content
 
 
 SYSTEM_PROMPT = """You tailor Caleb Pratt's resume bullets for one specific job posting at a time.
 
-For each role, rewrite its bullets so the phrasing and emphasis foreground the skills, tools, and responsibilities most relevant to the target posting — a reader should come away thinking Caleb has done a lot of what this job needs. You may reorder, recombine, or rephrase freely, but every rewritten bullet must be traceable back to a specific source fact provided to you. Never invent a new accomplishment, employer, tool, metric, or outcome that isn't present in the source facts or extra accomplishments given to you — that is stretching the truth and is not allowed.
+<task>
+For each role, rewrite its bullets so phrasing and emphasis foreground the skills, tools, and responsibilities most relevant to the target posting. A reader should come away thinking Caleb has done a lot of what this job needs. Where truthful and natural, echo the posting's own terminology (e.g. if it says "cross-functional stakeholder management," and a source fact supports that framing, use those words) — this helps both human skimmers and ATS parsing.
+</task>
 
-Constraints, because the resume layout is fixed to exactly one printed page:
-- Match each role's target bullet count as closely as possible (never exceed it by more than one).
-- Keep each bullet to roughly one line — similar length to its source bullet, well under 200 characters.
-- Vary phrasing across roles; don't reuse the same three or four verbs for everything.
+<ground_truth_rule>
+Every rewritten bullet must be traceable to a specific source fact provided to you. You may reorder, recombine, rephrase, and re-emphasize freely. You may NEVER invent a new accomplishment, employer, tool, metric, or outcome that isn't present in the source facts or extra accomplishments given to you. This is a hard rule, not a style preference.
+</ground_truth_rule>
 
-Also choose the one optional section (or none) most relevant to this posting.
+<example>
+Source fact: "Managed relationships with 12 enterprise accounts, coordinating with product and support teams to resolve escalations"
+Posting emphasizes: cross-functional coordination, technical stakeholder management
 
-Respond with the tailored bullets and section choice only, in the required JSON format — no commentary."""
+Good rewrite: "Coordinated cross-functionally with product and support teams to resolve escalations across 12 accounts"
+— Reordered to lead with the coordination skill the posting cares about. Same facts, same numbers. 103 characters — fills the line without wrapping.
+
+Bad rewrite: "Led cross-functional initiatives improving enterprise account retention by 30%"
+— Invents a metric (30%) and reframes "managed relationships" as "led initiatives." Not allowed, even though it sounds more impressive.
+</example>
+
+<reasoning_step>
+Before writing the final bullets for a role, briefly note in that role's "reasoning" field: which 2-3 source facts for that role are most relevant to this specific posting, and why. Keep this to one or two sentences per role — it's a working note for prompt evaluation, not part of the printed resume.
+</reasoning_step>
+
+<constraints>
+The resume layout is fixed to exactly one printed page.
+
+Hard line-length limit: each bullet must be 100 characters or fewer, counting every letter, space, and punctuation mark. Treat 100 as a true ceiling, not a target to approach — err toward slightly under it rather than over, since exceeding it wraps the bullet to a second line and breaks the one-page layout. Count carefully; do not estimate.
+
+Also avoid running too short: aim for 85-100 characters where the source fact supports it, so lines use the available space rather than leaving obvious blank space at the end. Only go shorter than 85 when the underlying source fact genuinely doesn't support more detail — never pad with filler words just to reach the target.
+
+When constraints conflict, priority order is:
+(1) never invent facts
+(2) every bullet stays at or under 100 characters — when in doubt, go shorter, not longer
+(3) every bullet reaches at least 85 characters where the source fact supports it
+(4) stay at or under each role's target bullet count (never exceed by more than one)
+(5) vary phrasing/verbs across roles
+
+If a fact is too rich to fit in one 100-character bullet without inventing or dropping essential meaning, cut it down to its single most relevant, truthful part rather than running long.
+</constraints>
+
+<optional_section>
+Choose the one optional section (or "none") most relevant to this posting, based on the relevance hints provided.
+</optional_section>
+
+Respond in the required JSON format only — no commentary outside the schema fields."""
 
 
 def _generate_bullets(master, bank, title, company, location, description):
@@ -186,7 +231,7 @@ def _generate_bullets(master, bank, title, company, location, description):
 
     response = client.messages.create(
         model=MODEL,
-        max_tokens=4096,
+        max_tokens=6000,
         output_config={
             "effort": EFFORT,
             "format": {"type": "json_schema", "schema": RESUME_SCHEMA},
@@ -211,7 +256,7 @@ def _render_resume_html(master, tailored, job_title, job_company):
   @page {{ size: letter; margin: 0.4in 0.55in; }}
   * {{ box-sizing: border-box; }}
   body {{
-    font-family: Arial, Helvetica, sans-serif; color: #111;
+    font-family: Calibri, Carlito, Candara, Segoe, "Segoe UI", Optima, Arial, sans-serif; color: #111;
     font-size: 10pt; line-height: 1.25; max-width: 8.5in; margin: 0 auto; padding: 0.35in 0.5in;
   }}
   .toolbar {{
