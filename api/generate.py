@@ -257,7 +257,7 @@ def _render_resume_html(master, tailored, job_title, job_company):
   * {{ box-sizing: border-box; }}
   body {{
     font-family: Calibri, Carlito, Candara, Segoe, "Segoe UI", Optima, Arial, sans-serif; color: #111;
-    font-size: 9.1pt; line-height: 1.25; max-width: 8.5in; margin: 0 auto; padding: 0.35in 0.5in;
+    font-size: 9.3pt; line-height: 1.25; max-width: 8.5in; margin: 0 auto; padding: 0.35in 0.5in;
   }}
   .toolbar {{
     display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 14px;
@@ -268,13 +268,14 @@ def _render_resume_html(master, tailored, job_title, job_company):
     border: 1px solid #1F51D6; background: #1F51D6; color: #fff; cursor: pointer;
   }}
   h1 {{ text-align: center; font-size: 15pt; letter-spacing: 0.03em; margin: 0 0 2px; }}
-  .contact {{ text-align: center; font-size: 9.2pt; margin: 0 0 7px; }}
+  .contact {{ text-align: center; font-size: 9.2pt; margin: 0 0 1px; }}
+  .contact.phone {{ margin: 0 0 7px; }}
   .contact a {{ color: #111; }}
   h2 {{
     font-size: 9.4pt; letter-spacing: 0.05em; border-bottom: 1px solid #111;
-    margin: 8px 0 3px; padding-bottom: 1px; text-transform: uppercase;
+    margin: 6px 0 3px; padding-bottom: 1px; text-transform: uppercase;
   }}
-  .entry {{ margin-bottom: 2px; }}
+  .entry {{ margin-bottom: 11pt; }}
   .row {{ display: flex; justify-content: space-between; gap: 12px; font-weight: bold; }}
   .row .dates {{ white-space: nowrap; font-weight: normal; }}
   .subtitle {{ font-style: italic; display: flex; justify-content: space-between; gap: 12px; }}
@@ -293,7 +294,8 @@ def _render_resume_html(master, tailored, job_title, job_company):
 <body>
 <div class="toolbar"><button onclick="window.print()">Print / Save as PDF</button></div>
 <h1>{html.escape(h['name'])}</h1>
-<p class="contact"><a href="mailto:{html.escape(h['email'])}">{html.escape(h['email'])}</a> &middot; {html.escape(h['phone'])}</p>
+<p class="contact"><a href="mailto:{html.escape(h['email'])}">{html.escape(h['email'])}</a></p>
+<p class="contact phone">{html.escape(h['phone'])}</p>
 <h2>Experience</h2>""")
 
     for company in master["experience"]:
