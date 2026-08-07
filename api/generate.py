@@ -200,18 +200,18 @@ Before writing the final bullets for a role, briefly note in that role's "reason
 <constraints>
 The resume layout is fixed to exactly one printed page.
 
-Hard line-length limit: each bullet must be 118 characters or fewer, counting every letter, space, and punctuation mark. Treat 118 as a true ceiling, not a target to approach — err toward slightly under it rather than over, since exceeding it wraps the bullet to a second line and breaks the one-page layout. Count carefully; do not estimate.
+Hard line-length limit: each bullet must be 122 characters or fewer, counting every letter, space, and punctuation mark. Treat 122 as a true ceiling, not a target to approach — err toward slightly under it rather than over, since exceeding it wraps the bullet to a second line and breaks the one-page layout. Count carefully; do not estimate.
 
-Also avoid running too short: aim for 100-118 characters where the source fact supports it, so lines use the available space rather than leaving obvious blank space at the end. Only go shorter than 100 when the underlying source fact genuinely doesn't support more detail — never pad with filler words just to reach the target.
+Also avoid running too short: aim for 110-122 characters where the source fact supports it, so lines use the available space rather than leaving obvious blank space at the end. This is a narrow band on purpose — most bullets should land in its top half (116-122), close to the ceiling, not clustered near 110. Only go shorter than 110 when the underlying source fact genuinely doesn't support more detail — never pad with filler words just to reach the target.
 
 When constraints conflict, priority order is:
 (1) never invent facts
-(2) every bullet stays at or under 118 characters — when in doubt, go shorter, not longer
-(3) every bullet reaches at least 100 characters where the source fact supports it
+(2) every bullet stays at or under 122 characters — when in doubt, go shorter, not longer
+(3) every bullet reaches at least 110 characters where the source fact supports it, ideally landing in the 116-122 range
 (4) stay at or under each role's target bullet count (never exceed by more than one)
 (5) vary phrasing/verbs across roles
 
-If a fact is too rich to fit in one 118-character bullet without inventing or dropping essential meaning, cut it down to its single most relevant, truthful part rather than running long.
+If a fact is too rich to fit in one 122-character bullet without inventing or dropping essential meaning, cut it down to its single most relevant, truthful part rather than running long.
 </constraints>
 
 <optional_section>
@@ -257,7 +257,7 @@ def _render_resume_html(master, tailored, job_title, job_company):
   * {{ box-sizing: border-box; }}
   body {{
     font-family: Calibri, Carlito, Candara, Segoe, "Segoe UI", Optima, Arial, sans-serif; color: #111;
-    font-size: 9.1pt; line-height: 1.25; max-width: 8.5in; margin: 0 auto; padding: 0.35in 0.5in;
+    font-size: 9.3pt; line-height: 1.25; max-width: 8.5in; margin: 0 auto; padding: 0.35in 0.5in;
   }}
   .toolbar {{
     display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 14px;
@@ -268,13 +268,14 @@ def _render_resume_html(master, tailored, job_title, job_company):
     border: 1px solid #1F51D6; background: #1F51D6; color: #fff; cursor: pointer;
   }}
   h1 {{ text-align: center; font-size: 15pt; letter-spacing: 0.03em; margin: 0 0 2px; }}
-  .contact {{ text-align: center; font-size: 9.2pt; margin: 0 0 7px; }}
+  .contact {{ text-align: center; font-size: 9.2pt; margin: 0 0 1px; }}
+  .contact.phone {{ margin: 0 0 7px; }}
   .contact a {{ color: #111; }}
   h2 {{
     font-size: 9.4pt; letter-spacing: 0.05em; border-bottom: 1px solid #111;
-    margin: 8px 0 3px; padding-bottom: 1px; text-transform: uppercase;
+    margin: 6px 0 3px; padding-bottom: 1px; text-transform: uppercase;
   }}
-  .entry {{ margin-bottom: 2px; }}
+  .entry {{ margin-bottom: 11pt; }}
   .row {{ display: flex; justify-content: space-between; gap: 12px; font-weight: bold; }}
   .row .dates {{ white-space: nowrap; font-weight: normal; }}
   .subtitle {{ font-style: italic; display: flex; justify-content: space-between; gap: 12px; }}
@@ -293,7 +294,8 @@ def _render_resume_html(master, tailored, job_title, job_company):
 <body>
 <div class="toolbar"><button onclick="window.print()">Print / Save as PDF</button></div>
 <h1>{html.escape(h['name'])}</h1>
-<p class="contact"><a href="mailto:{html.escape(h['email'])}">{html.escape(h['email'])}</a> &middot; {html.escape(h['phone'])}</p>
+<p class="contact"><a href="mailto:{html.escape(h['email'])}">{html.escape(h['email'])}</a></p>
+<p class="contact phone">{html.escape(h['phone'])}</p>
 <h2>Experience</h2>""")
 
     for company in master["experience"]:

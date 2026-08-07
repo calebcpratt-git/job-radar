@@ -109,6 +109,7 @@ title_rules:
   - [deployed, intelligence]
   # implementation
   - [implementation]
+  - [implementations]
   # customer success & post-sale
   - [customer, success]
   - [customer, operations]
