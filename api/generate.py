@@ -200,18 +200,18 @@ Before writing the final bullets for a role, briefly note in that role's "reason
 <constraints>
 The resume layout is fixed to exactly one printed page.
 
-Hard line-length limit: each bullet must be 118 characters or fewer, counting every letter, space, and punctuation mark. Treat 118 as a true ceiling, not a target to approach — err toward slightly under it rather than over, since exceeding it wraps the bullet to a second line and breaks the one-page layout. Count carefully; do not estimate.
+Hard line-length limit: each bullet must be 122 characters or fewer, counting every letter, space, and punctuation mark. Treat 122 as a true ceiling, not a target to approach — err toward slightly under it rather than over, since exceeding it wraps the bullet to a second line and breaks the one-page layout. Count carefully; do not estimate.
 
-Also avoid running too short: aim for 100-118 characters where the source fact supports it, so lines use the available space rather than leaving obvious blank space at the end. Only go shorter than 100 when the underlying source fact genuinely doesn't support more detail — never pad with filler words just to reach the target.
+Also avoid running too short: aim for 110-122 characters where the source fact supports it, so lines use the available space rather than leaving obvious blank space at the end. This is a narrow band on purpose — most bullets should land in its top half (116-122), close to the ceiling, not clustered near 110. Only go shorter than 110 when the underlying source fact genuinely doesn't support more detail — never pad with filler words just to reach the target.
 
 When constraints conflict, priority order is:
 (1) never invent facts
-(2) every bullet stays at or under 118 characters — when in doubt, go shorter, not longer
-(3) every bullet reaches at least 100 characters where the source fact supports it
+(2) every bullet stays at or under 122 characters — when in doubt, go shorter, not longer
+(3) every bullet reaches at least 110 characters where the source fact supports it, ideally landing in the 116-122 range
 (4) stay at or under each role's target bullet count (never exceed by more than one)
 (5) vary phrasing/verbs across roles
 
-If a fact is too rich to fit in one 118-character bullet without inventing or dropping essential meaning, cut it down to its single most relevant, truthful part rather than running long.
+If a fact is too rich to fit in one 122-character bullet without inventing or dropping essential meaning, cut it down to its single most relevant, truthful part rather than running long.
 </constraints>
 
 <optional_section>
