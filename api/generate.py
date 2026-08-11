@@ -59,6 +59,20 @@ MAX_DESCRIPTION_CHARS = 6000
 
 _TAG_RE = re.compile(r"<[^>]+>")
 _SCRIPT_STYLE_RE = re.compile(r"<(script|style)[^>]*>.*?</\1>", re.DOTALL | re.IGNORECASE)
+_META_DESCRIPTION_RE = re.compile(
+    r"""<meta\s+(?:[^>]*?\s)?name=["']description["'][^>]*?\scontent=(["'])(.*?)\1[^>]*>""",
+    re.IGNORECASE | re.DOTALL,
+)
+_OG_DESCRIPTION_RE = re.compile(
+    r"""<meta\s+(?:[^>]*?\s)?property=["']og:description["'][^>]*?\scontent=(["'])(.*?)\1[^>]*>""",
+    re.IGNORECASE | re.DOTALL,
+)
+# Below this length, treat the stripped body as an empty JS-app shell (e.g.
+# Ashby, Greenhouse embeds) rather than real posting text, and fall back to
+# the <meta name="description">/og:description content instead — ATS SPAs
+# commonly stuff the full job description there for link previews/SEO even
+# though the rendered body is empty without JavaScript.
+MIN_BODY_TEXT_LEN = 200
 
 ROLE_KEYS = [
     "playbook_csm",
@@ -95,6 +109,13 @@ def _strip_html(raw_html):
     return re.sub(r"\s+", " ", text).strip()
 
 
+def _meta_description(raw_html):
+    m = _META_DESCRIPTION_RE.search(raw_html) or _OG_DESCRIPTION_RE.search(raw_html)
+    if not m:
+        return None
+    return _strip_html(html.unescape(m.group(2)))
+
+
 def _fetch_description(url):
     """Best-effort: scrape the posting for extra context. Never fatal."""
     try:
@@ -104,7 +125,12 @@ def _fetch_description(url):
             headers={"User-Agent": "Mozilla/5.0 (compatible; job-radar-resume-tailor/1.0)"},
         )
         resp.raise_for_status()
-        return _strip_html(resp.text)[:MAX_DESCRIPTION_CHARS]
+        body_text = _strip_html(resp.text)
+        if len(body_text) < MIN_BODY_TEXT_LEN:
+            meta_text = _meta_description(resp.text)
+            if meta_text and len(meta_text) > len(body_text):
+                body_text = meta_text
+        return body_text[:MAX_DESCRIPTION_CHARS]
     except Exception as e:
         print(f"! description fetch failed for {url}: {e}")
         return None
