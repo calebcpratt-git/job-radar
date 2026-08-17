@@ -252,7 +252,14 @@ def _generate_bullets(master, bank, title, company, location, description):
     if not api_key:
         raise RuntimeError("ANTHROPIC_API_KEY is not set in the Vercel project's environment variables")
 
-    client = Anthropic(api_key=api_key, timeout=55.0)
+    # A single attempt at the current prompt (6 roles, each with a reasoning
+    # field plus bullets) can genuinely take close to a minute; the SDK's
+    # default max_retries=2 used to turn one slow-but-real generation into
+    # three, stacking to ~2.5min before giving up (seen in prod: a 502 after
+    # 169s against the old 55s timeout). Retrying doesn't help when the call
+    # isn't flaky, it's just slow, so give it more per-attempt headroom and
+    # fail fast after one retry instead of three.
+    client = Anthropic(api_key=api_key, timeout=110.0, max_retries=1)
     user_content = _build_prompt(master, bank, title, company, location, description)
 
     response = client.messages.create(
