@@ -55,6 +55,7 @@ jsearch:
     - "operations manager in new york"
     - "forward deployed implementation manager in new york"
     - "customer success solutions consultant in new york"
+    - "founding recruiter in new york"
   pages: 10           # pages of results per query, returned in one call
   country: "us"
 
@@ -128,3 +129,5 @@ title_rules:
   - [growth, operations]
   - [bizops]
   - [chief, staff]
+  # recruiting/talent
+  - [recruiter]
