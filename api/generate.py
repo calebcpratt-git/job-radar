@@ -25,7 +25,15 @@ from urllib.parse import urlparse, parse_qs
 
 import requests
 import yaml
-from anthropic import Anthropic, APIError
+from anthropic import (
+    Anthropic,
+    APIConnectionError,
+    APIError,
+    APITimeoutError,
+    AuthenticationError,
+    PermissionDeniedError,
+    RateLimitError,
+)
 
 RESUME_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "resume")
 
@@ -426,13 +434,98 @@ def _render_resume_html(master, tailored, job_title, job_company):
     return "\n".join(parts)
 
 
-def _error_page(status_text, message):
+def _error_page(status_text, message, detail=None):
+    detail_html = (
+        f'<p style="color:#888;font-size:0.85em;margin-top:24px">{html.escape(detail)}</p>' if detail else ""
+    )
     return f"""<!DOCTYPE html><html><head><meta charset="utf-8">
 <title>Resume generation failed</title></head>
 <body style="font-family:sans-serif;max-width:640px;margin:80px auto;color:#333">
 <h1 style="color:#c0392b">{html.escape(status_text)}</h1>
 <p>{html.escape(message)}</p>
+{detail_html}
 </body></html>"""
+
+
+def _friendly_api_error(e):
+    """Translate a raw Anthropic SDK exception into a plain-language message.
+
+    The SDK's own str(e) is a debugging dump (raw JSON body, request id) --
+    fine in the Vercel logs (still printed there), useless to a human reading
+    the error page. Falls back to a generic message plus the raw text for
+    anything not recognized, rather than hiding it.
+    """
+    body = getattr(e, "body", None)
+    error_type = (body or {}).get("error", {}).get("type") if isinstance(body, dict) else None
+    status_code = getattr(e, "status_code", None)
+
+    if error_type == "overloaded_error" or status_code == 529:
+        return (
+            "Claude is temporarily overloaded",
+            "Anthropic's API is at capacity right now. This isn't specific to this "
+            "job or account -- wait a minute or two and click \"Tailor resume\" again.",
+            None,
+        )
+    if isinstance(e, RateLimitError) or status_code == 429:
+        return (
+            "Rate limited",
+            "Too many requests have hit the Claude API too quickly. Wait a bit before trying again.",
+            None,
+        )
+    if error_type == "invalid_request_error" and "credit balance" in str(e).lower():
+        return (
+            "Anthropic account out of credits",
+            "The Anthropic account behind this key has run out of credit balance. "
+            "Add credits at console.anthropic.com/settings/billing, then try again.",
+            None,
+        )
+    if isinstance(e, AuthenticationError) or status_code == 401:
+        return (
+            "Claude API key rejected",
+            "ANTHROPIC_API_KEY is missing or invalid. Check the key in the Vercel "
+            "project's environment variables (this isn't something retrying fixes).",
+            None,
+        )
+    if isinstance(e, PermissionDeniedError) or status_code == 403:
+        return (
+            "Claude API permission denied",
+            "The API key doesn't have permission for this request (e.g. no access "
+            "to the configured model). Check the key's permissions in the Anthropic Console.",
+            None,
+        )
+    if error_type == "invalid_request_error":
+        return (
+            "Malformed request to Claude",
+            "The request sent to Claude was rejected as invalid -- this points to a bug "
+            "in the resume generator itself (e.g. the schema or prompt), not something "
+            "retrying will fix. See the detail below and check the Vercel logs.",
+            str(e),
+        )
+    if isinstance(e, APITimeoutError):
+        return (
+            "Claude request timed out",
+            "Generation took too long and the request timed out. Try again -- if this "
+            "keeps happening, the timeout or the prompt may need adjusting.",
+            None,
+        )
+    if isinstance(e, APIConnectionError):
+        return (
+            "Couldn't reach Claude",
+            "A network error prevented the request from reaching Anthropic's API. Try again.",
+            None,
+        )
+    if status_code is not None and status_code >= 500:
+        return (
+            "Claude API internal error",
+            "Anthropic's API had an internal error unrelated to this request. Try again shortly.",
+            None,
+        )
+    return (
+        "Claude API error",
+        "An unexpected error came back from the Claude API. Try again; if it keeps "
+        "happening, check the Vercel logs for the full detail below.",
+        str(e),
+    )
 
 
 class handler(BaseHTTPRequestHandler):
@@ -466,7 +559,8 @@ class handler(BaseHTTPRequestHandler):
             resume_html = _render_resume_html(master, tailored, title, company)
         except APIError as e:
             print(f"! Claude API error: {e}")
-            self._send(502, _error_page("Claude API error", str(e)))
+            status_text, message, detail = _friendly_api_error(e)
+            self._send(502, _error_page(status_text, message, detail))
             return
         except Exception as e:
             print(f"! resume generation failed: {e}")
