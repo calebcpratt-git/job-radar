@@ -264,7 +264,15 @@ def _generate_bullets(master, bank, title, company, location, description):
 
     response = client.messages.create(
         model=MODEL,
-        max_tokens=6000,
+        # Reasoning fields for all 6 roles (added alongside bullets so the
+        # model has a place to work out fact selection) push completions
+        # much closer to the ceiling than the visible JSON alone suggests --
+        # 6000 was tuned before those fields existed and was silently
+        # truncating mid-string under `effort: medium`, which produces
+        # unparseable JSON (seen in prod as "Unterminated string..." and,
+        # when the cut lands before any text content exists, a bare/empty
+        # exception from the `next()` below finding no text block at all).
+        max_tokens=12000,
         output_config={
             "effort": EFFORT,
             "format": {"type": "json_schema", "schema": RESUME_SCHEMA},
@@ -272,7 +280,15 @@ def _generate_bullets(master, bank, title, company, location, description):
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_content}],
     )
-    text = next(b.text for b in response.content if b.type == "text")
+    if response.stop_reason == "max_tokens":
+        raise RuntimeError(
+            "Claude's response was cut off before finishing (hit max_tokens) -- "
+            "the generated resume was incomplete, not a formatting bug. Try again, "
+            "and if it keeps happening, max_tokens needs to go up further."
+        )
+    text = next((b.text for b in response.content if b.type == "text"), None)
+    if text is None:
+        raise RuntimeError("Claude's response had no text content to parse.")
     return json.loads(text)
 
 
