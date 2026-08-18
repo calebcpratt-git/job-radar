@@ -51,9 +51,9 @@ ALLOWED_REFERER_HOSTS = {
     for h in os.environ.get(
         "ALLOWED_REFERER_HOSTS",
         "calebcpratt-git.github.io,"
-        "get-rich-radar.vercel.app,"
-        "get-rich-radar-team-caleb1.vercel.app,"
-        "get-rich-radar-git-main-team-caleb1.vercel.app",
+        "calebs-job-radar.vercel.app,"
+        "calebs-job-radar-team-caleb1.vercel.app,"
+        "calebs-job-radar-git-main-team-caleb1.vercel.app",
     ).split(",")
     if h.strip()
 }
