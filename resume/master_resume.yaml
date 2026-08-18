@@ -25,6 +25,11 @@ experience:
     roles:
       - id: "playbook_csm"
         title: "Customer Success and Product Manager"
+        # Used instead of `title` when the target posting is a recruiting/
+        # talent-acquisition role (see RESUME_SCHEMA's recruiting_focus flag
+        # in api/generate.py) -- same role, same dates, just the framing that
+        # actually matches recruiting-relevant work done in this seat.
+        title_recruiting: "Customer Success & Product Manager | Technical Recruiting Lead"
         start: "December 2025"
         end: "May 2026"
         bullet_target: 6
@@ -35,15 +40,26 @@ experience:
           - "Managed a portfolio of active clients across the full lifecycle, from onboarding and system integration through contract renewal"
           - "Served as the primary point of contact for clients, surfacing needs and ensuring maximum value extraction from the platform"
           - "Onboarded 15 clients projected to process $4M annually through the platform, ensuring each account was fully configured and live"
+          - "Led full-cycle recruiting for engineering and product roles, closing 8 technical hires from sourcing through offer negotiation"
+          - "Designed technical screening processes with hiring managers and coordinated offer negotiation to close top candidates"
       - id: "playbook_partnerships"
         title: "Strategic Partnerships and Marketing Associate"
+        title_recruiting: "Growth Associate | GTM Recruiting Lead"
         start: "August 2025"
         end: "December 2025"
         bullet_target: 3
+        # Higher target used instead of bullet_target when recruiting_focus is
+        # true -- shows all 5 available facts for this role (2 recruiting + 3
+        # general) instead of trimming to the base resume's 3, since the
+        # recruiting-focused version has the room (Projects added, LTX
+        # dropped) and the user wants the fuller picture of this role there.
+        bullet_target_recruiting: 5
         bullets:
           - "Conducted prospective client research and direct cold outreach, supporting the full sales cycle from lead generation through close"
           - "Developed high-leverage outreach and research workflows to scale customer acquisition and drive top-of-funnel growth"
           - "Established new outbound marketing strategies that drove a sustained 60% increase in active pipeline generation"
+          - "Sourced and screened candidates for GTM and post-sales roles, closing 4 hires across concurrent searches"
+          - "Partnered closely with hiring managers on interview strategy and candidate selection to close top talent"
 
   - company: "Revolution Learning"
     subtitle: "Educational Technology and Data Consultant"
@@ -95,6 +111,10 @@ experience:
     location: "Austin, TX"
     start: "July 2020"
     end: "September 2020"
+    # Dropped from recruiting-focused resumes (see recruiting_focus in
+    # api/generate.py) to make room for the Projects/GitHub section, which
+    # is shown by default on those instead.
+    drop_for_recruiting_focus: true
     roles:
       - id: "ltx"
         title: null
@@ -144,7 +164,29 @@ leadership:
             - "Managed all financial planning, dues collection, budgeting, and related communications for a $1.5 million annual chapter budget"
 
 additional:
+  # Default list shown unless the generator swaps in more relevant items from
+  # computer_skills_pool below (see recruiting/skills handling in
+  # api/generate.py). Sourced from the current resume version.
   computer_skills:
+    - "Claude Code + Design"
+    - "Python"
+    - "SQL"
+    - "Jira"
+    - "Tableau"
+    - "Alteryx"
+    - "Google Apps Script + Data Studio"
+    - "HubSpot"
+  # Every computer skill that has appeared on any resume version Caleb has
+  # maintained, kept here so the generator can pull in an older/more-specific
+  # item (e.g. "Figma" for a design-leaning posting) even though it's not in
+  # the current default list above. Must be a strict superset of the exact
+  # strings in computer_skills (api/generate.py's render-time safety filter
+  # keeps a model-picked skill only if it string-matches an entry here, so a
+  # default item missing its own exact phrasing gets silently dropped) --
+  # add to this list, never remove from it, when a new resume version
+  # changes computer_skills.
+  computer_skills_pool:
+    - "Claude Code + Design"
     - "Python"
     - "SQL"
     - "v0"
@@ -153,7 +195,9 @@ additional:
     - "Tableau"
     - "Alteryx"
     - "R"
+    - "Google Apps Script"
     - "Google Apps Script + Data Studio"
+    - "HubSpot"
     - "CRM Systems (HubSpot)"
   interests:
     - "Piano"
