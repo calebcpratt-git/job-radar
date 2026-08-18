@@ -621,6 +621,9 @@ TEMPLATE = """<!DOCTYPE html>
           <button class="tab active" data-tab="target" role="tab" aria-selected="true">
             Target Companies <span class="count">{target_count}</span>
           </button>
+          <button class="tab" data-tab="other" role="tab" aria-selected="false">
+            Other Companies <span class="count">{other_count}</span>
+          </button>
         </div>
 
         <div class="controls">
@@ -635,7 +638,11 @@ TEMPLATE = """<!DOCTYPE html>
           {target_rows}
         </ul>
 
-        <footer>Job Radar · Target Companies from your named ATS boards, once each morning.</footer>
+        <ul id="list-other" class="job-list" hidden>
+          {other_rows}
+        </ul>
+
+        <footer>Job Radar · Target Companies from your named ATS boards, plus Other Companies from broad search, once each morning.</footer>
       </div>
     </div>
   </div>
@@ -644,7 +651,9 @@ TEMPLATE = """<!DOCTYPE html>
   const tabs = Array.from(document.querySelectorAll('.tab'));
   const panels = {{
     target: document.getElementById('list-target'),
+    other: document.getElementById('list-other'),
   }};
+  let activeTab = 'target';
 
   const q = document.getElementById('q');
   const items = Array.from(document.querySelectorAll('.job-list .job'));
@@ -661,6 +670,7 @@ TEMPLATE = """<!DOCTYPE html>
   }};
 
   function computeVisible(el) {{
+    if (!panels[activeTab].contains(el)) return false;
     if (filterState.search) {{
       const text = el.textContent.toLowerCase();
       if (!text.includes(filterState.search)) return false;
@@ -761,6 +771,7 @@ TEMPLATE = """<!DOCTYPE html>
     btn.classList.add('active');
     btn.setAttribute('aria-selected', 'true');
     const tabKey = btn.dataset.tab;
+    activeTab = tabKey;
     Object.entries(panels).forEach(([key, el]) => {{ el.hidden = key !== tabKey; }});
     buildCompanyFilter(tabKey);
   }}));
