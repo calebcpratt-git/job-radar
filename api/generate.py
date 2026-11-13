@@ -91,6 +91,11 @@ ROLE_KEYS = [
     "ltx",
 ]
 
+# Longest "Label: item, item, ..." skills line that still fits on one
+# printed line at 10pt Calibri/Carlito (the 2026-11 base resume's longest is
+# 114 chars). _pick_skill_groups trims trailing items past this.
+SKILL_LINE_MAX_CHARS = 118
+
 RESUME_SCHEMA = {
     "type": "object",
     "properties": {
@@ -103,15 +108,27 @@ RESUME_SCHEMA = {
         # swaps in each Playbook role's title_recruiting in place of its
         # normal title (see _render_resume_html).
         "recruiting_focus": {"type": "boolean"},
-        # Computer skills to display, in order. Normally just the default
-        # list from master_resume.yaml's additional.computer_skills verbatim
-        # -- only deviate (pulling from computer_skills_pool) when specific
-        # items are clearly more relevant to this posting than the default.
-        "computer_skills": {"type": "array", "items": {"type": "string"}},
+        # Skill lines to display under "Additional Information", one per
+        # labeled group in master_resume.yaml's additional.skill_groups.
+        # Normally the defaults verbatim -- only deviate (pulling from
+        # computer_skills_pool) when specific items are clearly more relevant
+        # to this posting. Validated again at render time (_pick_skill_groups).
+        "skill_groups": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "label": {"type": "string"},
+                    "items": {"type": "array", "items": {"type": "string"}},
+                },
+                "required": ["label", "items"],
+                "additionalProperties": False,
+            },
+        },
     },
     "required": [f"{key}_reasoning" for key in ROLE_KEYS]
     + [f"{key}_bullets" for key in ROLE_KEYS]
-    + ["optional_block", "recruiting_focus", "computer_skills"],
+    + ["optional_block", "recruiting_focus", "skill_groups"],
     "additionalProperties": False,
 }
 
@@ -188,8 +205,9 @@ def _build_prompt(master, bank, title, company, location, description):
     project = optional["projects"]["entries"][0]
     tbf = optional["tech_business_fellows"]["entries"][0]
 
-    default_skills = master["additional"]["computer_skills"]
+    skill_groups = master["additional"]["skill_groups"]
     skills_pool = master["additional"]["computer_skills_pool"]
+    default_skill_lines = "\n".join(f"  {g['label']}: {', '.join(g['items'])}" for g in skill_groups)
 
     posting_lines = [f"Title: {title}", f"Company: {company}"]
     if location:
@@ -209,7 +227,7 @@ Each role's true accomplishments — a pool to rephrase from, not a script to co
 </source_facts>
 
 <extra_accomplishments>
-Not on the base resume. Use only if relevant to this posting:
+Also true, and as usable as the source facts above (includes the newer phrasings from Caleb's latest resume). A leading [Role title] says which role a note belongs to. Use whichever facts best fit this posting:
 {chr(10).join(bank_lines) if bank_lines else "  (none yet)"}
 </extra_accomplishments>
 
@@ -220,8 +238,8 @@ Pick exactly one, or "none":
 </optional_sections>
 
 <computer_skills>
-Default list (use this verbatim unless the posting clearly calls for a swap):
-{", ".join(default_skills)}
+Default skill lines, one per label (use these verbatim unless the posting clearly calls for a swap):
+{default_skill_lines}
 
 Full pool across every resume version Caleb has maintained (only pull from here, never invent a tool/skill not listed):
 {", ".join(skills_pool)}
@@ -258,18 +276,18 @@ Before writing the final bullets for a role, briefly note in that role's "reason
 <constraints>
 The resume layout is fixed to exactly one printed page.
 
-Hard line-length limit: each bullet must be 122 characters or fewer, counting every letter, space, and punctuation mark. Treat 122 as a true ceiling, not a target to approach — err toward slightly under it rather than over, since exceeding it wraps the bullet to a second line and breaks the one-page layout. Count carefully; do not estimate.
+Hard line-length limit: each bullet must be 124 characters or fewer, counting every letter, space, and punctuation mark. Treat 124 as a true ceiling, not a target to approach — err toward slightly under it rather than over, since exceeding it wraps the bullet to a second line and breaks the one-page layout. Count carefully; do not estimate.
 
-Also avoid running too short: aim for 110-122 characters where the source fact supports it, so lines use the available space rather than leaving obvious blank space at the end. This is a narrow band on purpose — most bullets should land in its top half (116-122), close to the ceiling, not clustered near 110. Only go shorter than 110 when the underlying source fact genuinely doesn't support more detail — never pad with filler words just to reach the target.
+Also avoid running too short: aim for 110-124 characters where the source fact supports it, so lines use the available space rather than leaving obvious blank space at the end. Most bullets should land in the upper part of that band (115-124), not clustered near 110. Only go shorter than 110 when the underlying source fact genuinely doesn't support more detail — never pad with filler words just to reach the target.
 
 When constraints conflict, priority order is:
 (1) never invent facts
-(2) every bullet stays at or under 122 characters — when in doubt, go shorter, not longer
-(3) every bullet reaches at least 110 characters where the source fact supports it, ideally landing in the 116-122 range
+(2) every bullet stays at or under 124 characters — when in doubt, go shorter, not longer
+(3) every bullet reaches at least 110 characters where the source fact supports it, ideally landing in the 115-124 range
 (4) stay at or under each role's target bullet count (never exceed by more than one)
 (5) vary phrasing/verbs across roles
 
-If a fact is too rich to fit in one 122-character bullet without inventing or dropping essential meaning, cut it down to its single most relevant, truthful part rather than running long.
+If a fact is too rich to fit in one 124-character bullet without inventing or dropping essential meaning, cut it down to its single most relevant, truthful part rather than running long.
 </constraints>
 
 <optional_section>
@@ -286,7 +304,7 @@ When true:
 </recruiting_focus>
 
 <computer_skills_selection>
-"computer_skills" should be the default list, unchanged, for most postings. Only deviate when the posting names specific tools that appear in the full pool but not the default list (e.g. a design-heavy posting mentioning Figma) — in that case swap those pool items in, placing the most posting-relevant skills first, while keeping the list roughly the same length as the default. Never add anything to this list that isn't in the pool, and never drop the skills the posting is actually asking about in favor of ones it isn't.
+"skill_groups" should be the default skill lines, unchanged (same labels, same order, same items), for most postings. Only deviate when the posting names specific tools that appear in the full pool but not the defaults (e.g. a design-heavy posting mentioning Figma) — in that case swap those pool items into the best-fitting group, placing the most posting-relevant skills first within each group. Keep every label exactly as given, keep each line about as long as its default (each must fit on one printed line — under ~115 characters including the label), never add anything that isn't in the pool, and never drop the skills the posting is actually asking about in favor of ones it isn't.
 </computer_skills_selection>
 
 Respond in the required JSON format only — no commentary outside the schema fields."""
@@ -336,15 +354,53 @@ def _generate_bullets(master, bank, title, company, location, description):
         raise RuntimeError("Claude's response had no text content to parse.")
     result = json.loads(text)
     # Enforced here rather than left to the model: recruiting-focused resumes
-    # always show the GitHub project section (LTX Ventures is dropped from
-    # the experience list in _render_resume_html to make room for it).
+    # always show the Technical Projects section (LTX Ventures is dropped
+    # whenever projects show, and Parking Mandate Atlas is dropped on
+    # recruiting-focused ones -- see _render_resume_html).
     if result.get("recruiting_focus"):
         result["optional_block"] = "projects"
     return result
 
 
+def _sep():
+    return '<span class="sep"> &middot; </span>'
+
+
+def _row(left_html, right_text, cls):
+    right = f'<span class="right">{html.escape(right_text)}</span>' if right_text else ""
+    return f'<div class="row {cls}"><span class="left">{left_html}</span>{right}</div>'
+
+
+def _bullet_list(bullets):
+    return "<ul>" + "".join(f"<li>{html.escape(b)}</li>" for b in bullets) + "</ul>"
+
+
+def _pick_skill_groups(add, tailored):
+    """Default skill_groups from master_resume.yaml, with any model swaps
+    validated: labels must match a default group, items must be in the pool
+    (or that group's defaults), and each line must stay short enough to fit
+    on one printed line. Anything that fails falls back to the default."""
+    defaults = add["skill_groups"]
+    allowed = set(add["computer_skills_pool"]) | {i for g in defaults for i in g["items"]}
+    picked = {g.get("label"): g.get("items") or [] for g in (tailored.get("skill_groups") or []) if isinstance(g, dict)}
+    out = []
+    for g in defaults:
+        items = [i for i in picked.get(g["label"], []) if i in allowed]
+        # Drop trailing items until the line fits (label + items).
+        while items and len(g["label"]) + 2 + len(", ".join(items)) > SKILL_LINE_MAX_CHARS:
+            items.pop()
+        out.append({"label": g["label"], "items": items or g["items"]})
+    return out
+
+
 def _render_resume_html(master, tailored, job_title, job_company):
+    """Layout mirrors resume/Caleb_Pratt_Resume.pdf (the 2026-11 version):
+    sizes, weights and spacing below were measured from that PDF with
+    pdfplumber -- see SKILL.md "Resume tailoring" before changing them."""
     h = master["header"]
+    contact_bits = [f'<a href="mailto:{html.escape(h["email"])}">{html.escape(h["email"])}</a>', html.escape(h["phone"])]
+    if h.get("linkedin"):
+        contact_bits.append(f'<a href="https://{html.escape(h["linkedin"])}">{html.escape(h["linkedin"])}</a>')
     parts = []
     parts.append(f"""<!DOCTYPE html>
 <html lang="en">
@@ -352,12 +408,15 @@ def _render_resume_html(master, tailored, job_title, job_company):
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{html.escape(h['name'])} — Resume ({html.escape(job_company)})</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Carlito:ital,wght@0,400;0,700;1,400;1,700&display=block" rel="stylesheet">
 <style>
-  @page {{ size: letter; margin: 0.4in 0.5in; }}
+  @page {{ size: letter; margin: 0.3in 0.5in; }}
   * {{ box-sizing: border-box; }}
   body {{
-    font-family: Calibri, Carlito, Candara, Segoe, "Segoe UI", Optima, Arial, sans-serif; color: #111;
-    font-size: 9.3pt; line-height: 1.25; max-width: 8.5in; margin: 0 auto; padding: 0.35in 0.5in;
+    font-family: Calibri, Carlito, sans-serif; color: #000;
+    font-size: 10pt; line-height: 12pt; max-width: 8.5in; margin: 0 auto; padding: 0.3in 0.5in;
   }}
   .toolbar {{
     display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 14px;
@@ -367,24 +426,27 @@ def _render_resume_html(master, tailored, job_title, job_company):
     font: inherit; font-size: 13px; padding: 7px 14px; border-radius: 6px;
     border: 1px solid #1F51D6; background: #1F51D6; color: #fff; cursor: pointer;
   }}
-  h1 {{ text-align: center; font-size: 15pt; letter-spacing: 0.03em; margin: 0 0 2px; }}
-  .contact {{ text-align: center; font-size: 9.2pt; margin: 0 0 1px; }}
-  .contact.phone {{ margin: 0 0 7px; }}
-  .contact a {{ color: #111; }}
+  a {{ color: inherit; text-decoration: none; }}
+  h1 {{ text-align: center; font-size: 15pt; line-height: 18pt; font-weight: bold; margin: 0; }}
+  .contact {{ text-align: center; margin: 1pt 0 0; }}
+  .sep {{ font-weight: bold; font-size: 12pt; }}
   h2 {{
-    font-size: 9.4pt; letter-spacing: 0.05em; border-bottom: 1px solid #111;
-    margin: 6px 0 3px; padding-bottom: 1px; text-transform: uppercase;
+    font-size: 10.5pt; line-height: 13pt; font-weight: bold; text-transform: uppercase;
+    border-bottom: 0.75pt solid #000; padding-bottom: 0; margin: 6pt 0 4pt;
   }}
-  .entry {{ margin-bottom: 11pt; }}
-  .row {{ display: flex; justify-content: space-between; gap: 12px; font-weight: bold; }}
-  .row .dates {{ white-space: nowrap; font-weight: normal; }}
-  .subtitle {{ font-style: italic; display: flex; justify-content: space-between; gap: 12px; }}
-  ul {{ margin: 1px 0 4px; padding-left: 16px; }}
-  li {{ margin: 0 0 0.5px; }}
-  .role-title {{ font-style: italic; margin: 1px 0 0; }}
-  .edu-line {{ font-size: 9.8pt; }}
-  .add-info p {{ margin: 1px 0; font-size: 9.8pt; }}
-  .add-info b {{ font-weight: bold; }}
+  .row {{ display: flex; justify-content: space-between; align-items: baseline; gap: 12pt; }}
+  .row .right {{ white-space: nowrap; font-weight: normal; font-style: normal; font-size: 10pt; }}
+  .company {{ font-size: 11pt; line-height: 13pt; font-weight: bold; }}
+  .company .right {{ font-size: 11pt; font-weight: bold; }}
+  .role {{ font-size: 11pt; line-height: 13pt; font-style: italic; }}
+  .item {{ font-weight: bold; }}
+  .item i {{ font-weight: normal; }}
+  .subrole {{ font-style: italic; }}
+  .entry + .entry {{ margin-top: 5pt; }}
+  ul {{ list-style: none; margin: 0; padding: 0; }}
+  li {{ position: relative; padding-left: 12pt; }}
+  li::before {{ content: "\\25CF"; position: absolute; left: 0; font-family: Arial, sans-serif; font-size: 10pt; line-height: 12pt; }}
+  .skills b {{ font-weight: bold; }}
   @media print {{
     .toolbar {{ display: none; }}
     body {{ padding: 0; }}
@@ -394,96 +456,67 @@ def _render_resume_html(master, tailored, job_title, job_company):
 <body>
 <div class="toolbar"><button onclick="window.print()">Print / Save as PDF</button></div>
 <h1>{html.escape(h['name'])}</h1>
-<p class="contact"><a href="mailto:{html.escape(h['email'])}">{html.escape(h['email'])}</a></p>
-<p class="contact phone">{html.escape(h['phone'])}</p>
-<h2>Experience</h2>""")
+<p class="contact">{_sep().join(contact_bits)}</p>""")
 
     recruiting_focus = tailored.get("recruiting_focus")
+    optional_block = tailored.get("optional_block", "none")
+    projects_shown = optional_block == "projects"
+
+    parts.append("<h2>Experience</h2>")
     for company in master["experience"]:
-        if recruiting_focus and company.get("drop_for_recruiting_focus"):
+        if projects_shown and company.get("drop_when_projects_shown"):
             continue
         parts.append('<div class="entry">')
-        parts.append(
-            f'<div class="row"><span>{html.escape(company["company"])} '
-            f'&ndash; <span style="font-weight:normal;font-style:italic">{html.escape(company["subtitle"])}</span>; '
-            f'{html.escape(company["location"])}</span>'
-            f'<span class="dates">{html.escape(company["start"])} &ndash; {html.escape(company["end"])}</span></div>'
-        )
+        parts.append(_row(html.escape(company["company"]), company["location"], "company"))
         for role in company["roles"]:
             bullets = tailored.get(f"{role['id']}_bullets") or role["bullets"]
-            if not bullets:
-                bullets = role["bullets"]
-            role_title = role["title"]
+            role_title = role["title"] or company["subtitle"]
             if recruiting_focus and role.get("title_recruiting"):
                 role_title = role["title_recruiting"]
-            if role_title:
-                parts.append(
-                    f'<div class="role-title">{html.escape(role_title)} '
-                    f'({html.escape(role["start"])} &ndash; {html.escape(role["end"])})</div>'
-                )
-            parts.append("<ul>")
-            for b in bullets:
-                parts.append(f"<li>{html.escape(b)}</li>")
-            parts.append("</ul>")
+            start = role.get("start") or company["start"]
+            end = role.get("end") or company["end"]
+            parts.append(_row(html.escape(role_title), f"{start} – {end}", "role"))
+            parts.append(_bullet_list(bullets))
         parts.append("</div>")
+
+    if projects_shown:
+        parts.append("<h2>Technical Projects</h2>")
+        for entry in master["optional_blocks"]["projects"]["entries"]:
+            if recruiting_focus and entry.get("drop_for_recruiting_focus"):
+                continue
+            left = (
+                f'{html.escape(entry["name"])} &ndash; <i>{html.escape(entry["tagline"])}</i>'
+                f'{_sep()}<i>{html.escape(entry["link"])}</i>'
+            )
+            parts.append('<div class="entry">' + _row(left, entry["date"], "item") + _bullet_list(entry["bullets"]) + "</div>")
 
     parts.append("<h2>Education</h2>")
     for edu in master["education"]:
         parts.append(
-            f'<div class="entry edu-line"><div class="row"><span>{html.escape(edu["school"])}</span>'
-            f'<span class="dates">{html.escape(edu["date"])}</span></div>'
-            f'<div>{html.escape(edu["degree"])}</div>'
-            f'<div>Minor: {html.escape(edu["minor"])} &middot; {html.escape(edu["honors"])}</div></div>'
+            '<div class="entry">'
+            + _row(html.escape(edu["school"]), edu["date"], "item")
+            + f'<div>{html.escape(edu["degree"])}</div>'
+            + f'<div>Minor: {html.escape(edu["minor"])} &middot; {html.escape(edu["honors"])}</div>'
+            + (f'<div>Coursework: {html.escape(edu["coursework"])}</div>' if edu.get("coursework") else "")
+            + "</div>"
         )
-
-    optional_block = tailored.get("optional_block", "none")
-    if optional_block == "projects":
-        parts.append("<h2>Projects</h2>")
-        for entry in master["optional_blocks"]["projects"]["entries"]:
-            parts.append(
-                f'<div class="entry"><div class="row"><span>{html.escape(entry["name"])}</span>'
-                f'<span class="dates">{html.escape(entry["date"])}</span></div>'
-                f'<div style="font-size:9.6pt">{html.escape(entry["link"])}</div><ul>'
-                + "".join(f"<li>{html.escape(b)}</li>" for b in entry["bullets"])
-                + "</ul></div>"
-            )
 
     parts.append("<h2>Undergraduate Leadership Experience and Activities</h2>")
-    for entry in master["leadership"]["entries"]:
-        parts.append(
-            f'<div class="entry"><div class="row"><span>{html.escape(entry["org"])} &ndash; {html.escape(entry["role"])}</span>'
-            f'<span class="dates">{html.escape(entry["dates"])}</span></div>'
-        )
-        for sub in entry.get("subroles", []):
-            parts.append(
-                f'<div class="role-title">{html.escape(sub["title"])} ({html.escape(sub["dates"])})</div><ul>'
-                + "".join(f"<li>{html.escape(b)}</li>" for b in sub["bullets"])
-                + "</ul>"
-            )
-        parts.append("</div>")
+    leadership = list(master["leadership"]["entries"])
     if optional_block == "tech_business_fellows":
-        for entry in master["optional_blocks"]["tech_business_fellows"]["entries"]:
-            parts.append(
-                f'<div class="entry"><div class="row"><span>{html.escape(entry["org"])} &ndash; {html.escape(entry["role"])}</span>'
-                f'<span class="dates">{html.escape(entry["dates"])}</span></div><ul>'
-                + "".join(f"<li>{html.escape(b)}</li>" for b in entry["bullets"])
-                + "</ul></div>"
-            )
+        leadership += master["optional_blocks"]["tech_business_fellows"]["entries"]
+    for entry in leadership:
+        parts.append('<div class="entry">' + _row(f'{html.escape(entry["org"])} &ndash; {html.escape(entry["role"])}', entry["dates"], "item"))
+        for sub in entry.get("subroles", []):
+            parts.append(f'<div class="subrole">{html.escape(sub["title"])} ({html.escape(sub["dates"])})</div>' + _bullet_list(sub["bullets"]))
+        if entry.get("bullets"):
+            parts.append(_bullet_list(entry["bullets"]))
+        parts.append("</div>")
 
-    add = master["additional"]
-    # Only trust model-picked skills that actually exist in the pool (the
-    # ground-truth rule applies here too -- never render an invented skill);
-    # fall back to the default list if the model returned nothing valid.
-    skills_pool = set(add["computer_skills_pool"])
-    picked_skills = [s for s in (tailored.get("computer_skills") or []) if s in skills_pool]
-    computer_skills = picked_skills or add["computer_skills"]
-    parts.append(
-        '<h2>Additional Information</h2><div class="add-info">'
-        f'<p><b>Computer Skills:</b> {html.escape(", ".join(computer_skills))}</p>'
-        f'<p><b>Interests:</b> {html.escape(", ".join(add["interests"]))}</p>'
-        f'<p><b>Work Eligibility:</b> {html.escape(add["work_eligibility"])}</p>'
-        "</div>"
-    )
+    parts.append('<h2>Additional Information</h2><div class="skills">')
+    for g in _pick_skill_groups(master["additional"], tailored):
+        parts.append(f'<div><b>{html.escape(g["label"])}:</b> {html.escape(", ".join(g["items"]))}</div>')
+    parts.append("</div>")
     parts.append(f"<!-- tailored for: {html.escape(job_title)} @ {html.escape(job_company)} -->")
     parts.append("</body></html>")
     return "\n".join(parts)

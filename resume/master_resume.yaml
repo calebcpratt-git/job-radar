@@ -15,6 +15,7 @@ header:
   name: "Caleb Pratt"
   email: "calebcpratt@gmail.com"
   phone: "(281) 787-7334"
+  linkedin: "linkedin.com/in/caleb-pratt-6b8597182"
 
 experience:
   - company: "Playbook Sports"
@@ -62,8 +63,10 @@ experience:
           - "Partnered closely with hiring managers on interview strategy and candidate selection to close top talent"
 
   - company: "Revolution Learning"
-    subtitle: "Educational Technology and Data Consultant"
-    subtitle_alt: "Educational Data and Programs Consultant"
+    # Rendered as the italic role line. The 2026-11 resume uses this title;
+    # subtitle_alt is the older "Technology and Data" phrasing, kept for reference.
+    subtitle: "Educational Data and Programs Consultant"
+    subtitle_alt: "Educational Technology and Data Consultant"
     location: "Brooklyn, NY"
     start: "December 2023"
     end: "August 2025"
@@ -101,7 +104,7 @@ experience:
     roles:
       - id: "neuberger"
         title: null
-        bullet_target: 2
+        bullet_target: 3
         bullets:
           - "Contributed to all aspects of the development of a data warehouse for the company's alternative investment business lines"
           - "Interacted with database prototypes using SQL queries, pivot tables, and other tools while prepping them for ETL processes"
@@ -111,10 +114,12 @@ experience:
     location: "Austin, TX"
     start: "July 2020"
     end: "September 2020"
-    # Dropped from recruiting-focused resumes (see recruiting_focus in
-    # api/generate.py) to make room for the Projects/GitHub section, which
-    # is shown by default on those instead.
-    drop_for_recruiting_focus: true
+    # Dropped whenever the Technical Projects section is shown (see
+    # optional_block in api/generate.py) -- the projects block is several
+    # lines tall in the current template and LTX's slot is what keeps the
+    # page at one sheet. Matches the 2026-11 base resume, which shows
+    # Technical Projects and omits LTX.
+    drop_when_projects_shown: true
     roles:
       - id: "ltx"
         title: null
@@ -127,6 +132,7 @@ education:
     degree: "Bachelor of Business Administration, Management Information Systems"
     minor: "Accounting"
     honors: "Overall GPA: 3.80 (University Honors – 6 Semesters)"
+    coursework: "Advanced Analytics Programming (ML), Enterprise Computing, Data Management (SQL), Algorithms and Data Structures"
     date: "May 2022"
 
 # Exactly one of these (or neither) gets included per generated resume —
@@ -136,12 +142,30 @@ education:
 optional_blocks:
   projects:
     relevance_hint: "technical, product, or engineering-leaning roles"
+    # Rendered as the "Technical Projects" section, bullets verbatim (not
+    # AI-rewritten). Entry text matches the 2026-11 base resume. The earlier
+    # single-bullet Association GM description is kept in
+    # experience_bank.yaml's general list.
     entries:
-      - name: "Association GM – NBA Salary Cap & Trade Modeling Tool"
-        date: "June 2026 - Present"
+      - name: "Association GM"
+        tagline: "NBA Salary Cap & Trade Modeling Platform"
         link: "github.com/calebcpratt-git/nba-roster-builder"
+        date: "June 2026 – Present"
         bullets:
-          - "Full-stack app that models real-time salary cap math, trade legality, and contract scenarios under current CBA rules"
+          - "Built a full-stack Next.js/TypeScript app on Supabase and Vercel modeling cap math, trade legality, and CBA contract rules"
+          - "Engineered a Python scraping pipeline across 5 data sources, run by scheduled GitHub Actions with schema-drift detection"
+          - "Integrated a Claude API tool-use agent that queries player, contract, and cap data to answer roster-strategy questions"
+      - name: "Parking Mandate Atlas"
+        tagline: "Municipal Parking Code Comparison Platform"
+        link: "(private GitHub repo)"
+        date: "September 2026 – Present"
+        # Skipped on recruiting-focused resumes: those show 2 extra
+        # playbook_partnerships bullets, and this entry's lines are what
+        # makes room for them on one page.
+        drop_for_recruiting_focus: true
+        bullets:
+          - "Architecting a platform to ingest every U.S. municipal parking code, region by region, stored on a custom nested JSON schema"
+          - "Built agents that locate cities’ codified parking ordinances and translate code text into database schema"
   tech_business_fellows:
     relevance_hint: "general business, leadership, or generalist roles"
     entries:
@@ -164,9 +188,19 @@ leadership:
             - "Managed all financial planning, dues collection, budgeting, and related communications for a $1.5 million annual chapter budget"
 
 additional:
-  # Default list shown unless the generator swaps in more relevant items from
-  # computer_skills_pool below (see recruiting/skills handling in
-  # api/generate.py). Sourced from the current resume version.
+  # Rendered as labeled lines under "Additional Information", in this order,
+  # matching the 2026-11 base resume. The generator may swap in items from
+  # computer_skills_pool per posting (see skill_groups in api/generate.py).
+  skill_groups:
+    - label: "Languages & Data"
+      items: ["Python (pandas)", "SQL (BigQuery)", "TypeScript", "PostgreSQL", "REST APIs", "Google Apps Script", "Excel/VBA"]
+    - label: "Frameworks & Infra"
+      items: ["Next.js", "React", "Vercel", "GitHub Actions", "Git/GitHub"]
+    - label: "AI & Analytics"
+      items: ["Claude API (tool use, structured outputs)", "Claude Code", "Tableau", "Alteryx", "Looker Studio", "Jira", "HubSpot"]
+  # The flat "Computer Skills" default list from the previous resume
+  # version. No longer rendered (skill_groups replaced it) -- kept as a
+  # record; every item is also in computer_skills_pool.
   computer_skills:
     - "Claude Code + Design"
     - "Python"
@@ -176,15 +210,10 @@ additional:
     - "Alteryx"
     - "Google Apps Script + Data Studio"
     - "HubSpot"
-  # Every computer skill that has appeared on any resume version Caleb has
-  # maintained, kept here so the generator can pull in an older/more-specific
-  # item (e.g. "Figma" for a design-leaning posting) even though it's not in
-  # the current default list above. Must be a strict superset of the exact
-  # strings in computer_skills (api/generate.py's render-time safety filter
-  # keeps a model-picked skill only if it string-matches an entry here, so a
-  # default item missing its own exact phrasing gets silently dropped) --
-  # add to this list, never remove from it, when a new resume version
-  # changes computer_skills.
+  # Every skill that has appeared on any resume version Caleb has
+  # maintained. The generator may only display items from this list or the
+  # skill_groups defaults (api/generate.py filters anything else out). Add
+  # to it, never remove from it, when a new resume version changes skills.
   computer_skills_pool:
     - "Claude Code + Design"
     - "Python"
@@ -199,6 +228,22 @@ additional:
     - "Google Apps Script + Data Studio"
     - "HubSpot"
     - "CRM Systems (HubSpot)"
+    - "Python (pandas)"
+    - "SQL (BigQuery)"
+    - "TypeScript"
+    - "PostgreSQL"
+    - "REST APIs"
+    - "Excel/VBA"
+    - "Next.js"
+    - "React"
+    - "Vercel"
+    - "GitHub Actions"
+    - "Git/GitHub"
+    - "Claude API (tool use, structured outputs)"
+    - "Claude Code"
+    - "Looker Studio"
+  # Interests and work eligibility were on the previous resume version but
+  # are not on the 2026-11 template, so they aren't rendered. Kept as a record.
   interests:
     - "Piano"
     - "Guitar"

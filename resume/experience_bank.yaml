@@ -9,14 +9,47 @@
 # you did + the concrete outcome/scope), the same way the bullets in
 # master_resume.yaml are written — that's what lets the generator rephrase
 # it convincingly without stretching the truth.
+#
+# A leading [Role title] tells the generator which role a note belongs to
+# when a company has more than one.
+#
+# The by_company bullets below were added on 2026-11-13 from the newer
+# resume (resume/Caleb_Pratt_Resume.pdf, 2026-11 version), verbatim. They're
+# true and current. They sit alongside master_resume.yaml's facts, which
+# are the previous resume version's bullets.
 
 by_company:
-  playbook_sports: []
-  revolution_learning: []
-  interscope_geffen: []
-  neuberger_berman: []
+  playbook_sports:
+    - "[Customer Success and Product Manager] Led system integration and data migration from legacy platforms for 15 clients projected to process $4M annually"
+    - "[Customer Success and Product Manager] Authored technical documentation for 40+ feature and data model specs, turning business requirements into agile sprints"
+    - "[Customer Success and Product Manager] Synthesized requirements from customer success, sales, and engineering stakeholders into a prioritized product roadmap"
+    - "[Customer Success and Product Manager] Architected the company's first LLM-powered AI agents to generate feature docs from Jira tickets, cutting that work by 80%"
+    - "[Customer Success and Product Manager] Managed a client portfolio across the full lifecycle, from data and system integration through platform support and renewal"
+    - "[Customer Success and Product Manager] Served as primary client point of contact, surfacing needs and ensuring each account got full value from the platform"
+    - "[Strategic Partnerships and Marketing Associate] Directed engineers building web scraping pipelines and CRM development projects for lead generation"
+    - "[Strategic Partnerships and Marketing Associate] Engineered data-driven outbound workflows that drove a sustained 60% increase in active pipeline generation"
+    - "[Strategic Partnerships and Marketing Associate] Enriched scraped lead data and loaded it into HubSpot via its API, building custom properties and automated workflows"
+  revolution_learning:
+    - "Served as lead data engineer for 3 client schools, owning admin tech systems for instruction, admissions, and state testing"
+    - "Engineered Python ETL pipelines automating student-progress reporting from 9+ student progress tracking sources"
+    - "Designed analytics dashboard systems in Looker Studio, Tableau, and Google Workspace with automated weekly refreshes"
+    - "Wrote SQL against Google Workspace data to resolve urgent ad hoc requests from key school system stakeholders"
+    - "Standardized system configurations across client schools and trained end users on blended-learning technology"
+  interscope_geffen:
+    - "Built automated reporting dashboards in Tableau and Alteryx, owning end-to-end data cleansing, ETL, and visualization"
+    - "Delivered daily ad hoc analyses to C-suite executives and artist managers on time-sensitive title performance"
+    - "Pulled streaming data via APIs from all major DSPs (Spotify, Apple Music, Deezer, etc.) into real-time consumption reporting"
+    - "Conducted proprietary research across all music verticals and consumption methods using industry data sources"
+  neuberger_berman:
+    - "Contributed across the full build lifecycle of a data warehouse for the firm's alternative investment business lines"
+    - "Wrote SQL queries to analyze database prototypes and prepare them for ETL into the new data warehouse"
+    - "Served as business analyst on a major consulting engagement moving spreadsheet record-keeping to a governed data platform"
   ltx_ventures: []
 
 # Accomplishments not tied to a specific role above (e.g. side projects,
 # volunteer work, coursework) that could still be relevant to some postings.
-general: []
+general:
+  # Previous resume version's one-line Association GM description (the
+  # Technical Projects section now renders the 3-bullet version from
+  # master_resume.yaml).
+  - "Association GM: full-stack app that models real-time salary cap math, trade legality, and contract scenarios under current CBA rules"
