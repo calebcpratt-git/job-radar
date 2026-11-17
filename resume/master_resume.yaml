@@ -32,11 +32,12 @@ experience:
         title_recruiting: "Customer Success & Product Manager | Technical Recruiting Lead"
         start: "December 2025"
         end: "May 2026"
-        bullet_target: 6
+        bullet_target: 7
         bullets:
           - "Partnered with engineering to design and deliver new product features using agile epics and sprint-based development cycles"
           - "Contributed to product strategy by synthesizing input from customer success, sales, and engineering to set priorities"
           - "Designed and managed the development of 40+ complex feature stories, translating business needs into actionable specs"
+          - "Built and deployed the company's first AI agents to draft feature documentation, cutting time spent on that work by 80%"
           - "Managed a portfolio of active clients across the full lifecycle, from onboarding and system integration through contract renewal"
           - "Served as the primary point of contact for clients, surfacing needs and ensuring maximum value extraction from the platform"
           - "Onboarded 15 clients projected to process $4M annually through the platform, ensuring each account was fully configured and live"
@@ -49,11 +50,11 @@ experience:
         end: "December 2025"
         bullet_target: 3
         # Higher target used instead of bullet_target when recruiting_focus is
-        # true -- shows all 5 available facts for this role (2 recruiting + 3
-        # general) instead of trimming to the base resume's 3, since the
-        # recruiting-focused version has the room (Projects added, LTX
-        # dropped) and the user wants the fuller picture of this role there.
-        bullet_target_recruiting: 5
+        # true -- 4 of this role's 5 facts (both recruiting ones + 2 general)
+        # instead of the base resume's 3. Was 5 until 2026-11-13, when the
+        # always-shown Parking Mandate Atlas project made a full 7+5-bullet
+        # recruiting resume spill one line onto page 2.
+        bullet_target_recruiting: 4
         bullets:
           - "Conducted prospective client research and direct cold outreach, supporting the full sales cycle from lead generation through close"
           - "Developed high-leverage outreach and research workflows to scale customer acquisition and drive top-of-funnel growth"
@@ -62,7 +63,7 @@ experience:
           - "Partnered closely with hiring managers on interview strategy and candidate selection to close top talent"
 
   - company: "Revolution Learning"
-    subtitle: "Educational Technology and Data Consultant"
+    subtitle: "Ed Tech Services Account Manager"
     subtitle_alt: "Educational Data and Programs Consultant"
     location: "Brooklyn, NY"
     start: "December 2023"
@@ -72,11 +73,11 @@ experience:
         title: null
         bullet_target: 5
         bullets:
-          - "Directed all data management, analysis, and reporting efforts for the lower and middle school divisions of the Yeshivah of Flatbush"
-          - "Owned and operated various administrative tech systems for supplemental instruction, admissions processing, and other functions"
-          - "Collaborated with other client schools to share YOF best practices and transferable data systems where applicable"
-          - "Executed new technology-backed programs such as managed summer work, informed services, and digital standardized testing"
-          - "Facilitated blended-learning classroom structures by optimizing class logistics and providing needed instructional support"
+          - "Served as boots-on-the-ground manager for 3 client schools, learning the ins and outs of their services and operations"
+          - "Served as lead data engineer, owning admin tech systems for supplemental instruction, admissions, and other functions"
+          - "Acted as a cross-account resource, sharing best practices and transferable system configurations with other client schools"
+          - "Directed all data management, analysis, and reporting on student progress as reporting manager for the school's divisions"
+          - "Provided ongoing end-user support and training, ensuring successful adoption of blended-learning classroom technology"
 
   - company: "Interscope Geffen A&M Records"
     subtitle: "Business Intelligence Analyst"
@@ -111,10 +112,11 @@ experience:
     location: "Austin, TX"
     start: "July 2020"
     end: "September 2020"
-    # Dropped from recruiting-focused resumes (see recruiting_focus in
-    # api/generate.py) to make room for the Projects/GitHub section, which
-    # is shown by default on those instead.
-    drop_for_recruiting_focus: true
+    # Never rendered and never sent to the model (see `excluded` handling in
+    # api/generate.py): Caleb's rule as of 2026-11-13 is that LTX should never
+    # take space that Parking Mandate Atlas (standing_projects below) could
+    # use instead. Kept here only as a record of the role's facts.
+    excluded: true
     roles:
       - id: "ltx"
         title: null
@@ -150,6 +152,18 @@ optional_blocks:
         dates: "Fall 2020 – Spring 2022"
         bullets:
           - "Participated in a technology business strategy training program as 1 of 11 students selected from the class of 2020"
+
+# Always rendered in the Projects section, regardless of optional_block --
+# takes the space LTX Ventures used to (see `excluded` on that entry). Its
+# bullet is static (not AI-tailored) and must stay one line (<=122 chars) so
+# the page still fits. `link` is null because the repo is private.
+standing_projects:
+  entries:
+    - name: "Parking Mandate Atlas – Municipal Parking Code Comparison Tool"
+      date: "September 2026 - Present"
+      link: null
+      bullets:
+        - "Built a Node.js app normalizing 270+ parking provisions from 4 cities' codes into one schema, with a rule engine and API"
 
 # Always included — appears on both source resumes.
 leadership:
@@ -199,6 +213,20 @@ additional:
     - "Google Apps Script + Data Studio"
     - "HubSpot"
     - "CRM Systems (HubSpot)"
+  # Technical-role format: when the generator sets technical_skills (see
+  # RESUME_SCHEMA in api/generate.py), the whole "Additional Information"
+  # section is replaced by a section titled just "Skills" containing exactly
+  # these three lines -- no Computer Skills line, Interests, or Work
+  # Eligibility. Copied from Caleb's technical resume version
+  # (~/Downloads/Caleb_Pratt_Resume.pdf, 2026-11-13); Node.js/Express comes
+  # from resume/variants/technical (2026-10-30) and backs Parking Mandate Atlas.
+  technical_skills:
+    - label: "Languages & Data"
+      items: "Python (pandas), SQL (BigQuery), TypeScript, PostgreSQL, REST APIs, Google Apps Script, Excel/VBA"
+    - label: "Frameworks & Infra"
+      items: "Next.js, React, Node.js/Express, Vercel, GitHub Actions, Git/GitHub"
+    - label: "AI & Analytics"
+      items: "Claude API (tool use, structured outputs), Claude Code, Tableau, Alteryx, Looker Studio, Jira, HubSpot"
   interests:
     - "Piano"
     - "Guitar"

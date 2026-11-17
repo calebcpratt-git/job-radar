@@ -16,6 +16,7 @@ Not strongly authenticated — see the Referer check below and SKILL.md's
 cap on the Anthropic API key).
 """
 
+import datetime
 import html
 import json
 import os
@@ -88,7 +89,8 @@ ROLE_KEYS = [
     "revolution_learning",
     "interscope",
     "neuberger",
-    "ltx",
+    # No "ltx": LTX Ventures is `excluded: true` in master_resume.yaml (Parking
+    # Mandate Atlas takes its space), so the model is never asked for it.
 ]
 
 RESUME_SCHEMA = {
@@ -108,10 +110,15 @@ RESUME_SCHEMA = {
         # -- only deviate (pulling from computer_skills_pool) when specific
         # items are clearly more relevant to this posting than the default.
         "computer_skills": {"type": "array", "items": {"type": "string"}},
+        # Technical roles (data/BI/analytics, engineering, technical product)
+        # get the whole "Additional Information" section swapped for a
+        # "Skills" section of master_resume.yaml's three technical_skills
+        # lines (see _render_resume_html).
+        "technical_skills": {"type": "boolean"},
     },
     "required": [f"{key}_reasoning" for key in ROLE_KEYS]
     + [f"{key}_bullets" for key in ROLE_KEYS]
-    + ["optional_block", "recruiting_focus", "computer_skills"],
+    + ["optional_block", "recruiting_focus", "computer_skills", "technical_skills"],
     "additionalProperties": False,
 }
 
@@ -166,6 +173,8 @@ def _find_role(master, role_id):
 def _build_prompt(master, bank, title, company, location, description):
     facts_lines = []
     for exp_company in master["experience"]:
+        if exp_company.get("excluded"):
+            continue
         for role in exp_company["roles"]:
             label = role["title"] or exp_company["subtitle"]
             target_note = f"target: {role['bullet_target']} bullets"
@@ -234,18 +243,23 @@ SYSTEM_PROMPT = """You tailor Caleb Pratt's resume bullets for one specific job 
 
 <task>
 For each role, rewrite its bullets so phrasing and emphasis foreground the skills, tools, and responsibilities most relevant to the target posting. A reader should come away thinking Caleb has done a lot of what this job needs. Where truthful and natural, echo the posting's own terminology (e.g. if it says "cross-functional stakeholder management," and a source fact supports that framing, use those words) — this helps both human skimmers and ATS parsing.
+
+Rewriting means restructuring the sentence around what the posting cares about, not lightly editing the source fact's existing sentence. Swapping one verb, reordering two existing clauses, or dropping an article ("the") is NOT rewriting — it's cosmetic and produces a resume that reads as copy-pasted, which defeats the entire point of this feature. For every bullet, ask: if I described this same underlying fact to someone who only cared about this posting, would I naturally start the sentence here, with these words? If the rewrite still shares its opening words or overall shape with the source fact, redo it. Vary sentence openers and structure across bullets in the same role — don't let most of them start with the source fact's original verb.
 </task>
 
 <ground_truth_rule>
-Every rewritten bullet must be traceable to a specific source fact provided to you. You may reorder, recombine, rephrase, and re-emphasize freely. You may NEVER invent a new accomplishment, employer, tool, metric, or outcome that isn't present in the source facts or extra accomplishments given to you. This is a hard rule, not a style preference.
+Every rewritten bullet must be traceable to a specific source fact provided to you. You may reorder, recombine, rephrase, and re-emphasize freely. You may NEVER invent a new accomplishment, employer, tool, metric, or outcome that isn't present in the source facts or extra accomplishments given to you. This is a hard rule about *content* (facts, numbers, tools, outcomes), not a license to keep the source's original wording and sentence shape — see <task> above for how much the phrasing itself should change.
 </ground_truth_rule>
 
 <example>
 Source fact: "Managed relationships with 12 enterprise accounts, coordinating with product and support teams to resolve escalations"
-Posting emphasizes: cross-functional coordination, technical stakeholder management
+Posting emphasizes: cross-functional coordination, technical stakeholder management, systems ownership
 
-Good rewrite: "Coordinated cross-functionally with product and support teams to resolve escalations across 12 accounts"
-— Reordered to lead with the coordination skill the posting cares about. Same facts, same numbers. 103 characters — fills the line without wrapping.
+Good rewrite: "Served as the cross-functional link between product and support to resolve escalations across a 12-account portfolio"
+— Genuinely restructured around the posting's framing (Caleb as the coordination point), not just reordered. Same facts, same numbers, different sentence shape and opening.
+
+Not good enough: "Coordinated cross-functionally with product and support teams to resolve escalations across 12 accounts"
+— This looks like tailoring (a swapped opening verb, one clause moved) but it's the same sentence in different order — a skim-read of source vs. output shows almost identical wording. Treat this as failing the task, not as a safe middle ground.
 
 Bad rewrite: "Led cross-functional initiatives improving enterprise account retention by 30%"
 — Invents a metric (30%) and reframes "managed relationships" as "led initiatives." Not allowed, even though it sounds more impressive.
@@ -265,9 +279,10 @@ Also avoid running too short: aim for 110-122 characters where the source fact s
 When constraints conflict, priority order is:
 (1) never invent facts
 (2) every bullet stays at or under 122 characters — when in doubt, go shorter, not longer
-(3) every bullet reaches at least 110 characters where the source fact supports it, ideally landing in the 116-122 range
-(4) stay at or under each role's target bullet count (never exceed by more than one)
-(5) vary phrasing/verbs across roles
+(3) every bullet is a genuine restructure of its source fact per <task> above, not a light edit
+(4) every bullet reaches at least 110 characters where the source fact supports it, ideally landing in the 116-122 range
+(5) stay at or under each role's target bullet count (never exceed by more than one)
+(6) vary phrasing/verbs across roles
 
 If a fact is too rich to fit in one 122-character bullet without inventing or dropping essential meaning, cut it down to its single most relevant, truthful part rather than running long.
 </constraints>
@@ -281,13 +296,17 @@ Set "recruiting_focus" to true if the target posting is itself a recruiting, tal
 
 When true:
   - Within playbook_csm and playbook_partnerships specifically, source facts about recruiting/hiring/sourcing/candidate screening are the most relevant facts available — put their rewritten bullets first in each role's bullet list, ahead of the other bullets for that role, still subject to the normal character-length rules.
-  - Use each role's "or N bullets if recruiting_focus is true" target where one is given (see the fact list's per-role target note) instead of its normal target — this currently only applies to playbook_partnerships (5 instead of 3), so all of its facts get shown rather than trimmed.
+  - Use each role's "or N bullets if recruiting_focus is true" target where one is given (see the fact list's per-role target note) instead of its normal target — this currently only applies to playbook_partnerships (4 instead of 3) — include both of its recruiting facts plus its 2 most relevant general facts.
   - Do not fabricate recruiting facts for any other role — only playbook_csm and playbook_partnerships have recruiting-related source facts to draw on.
 </recruiting_focus>
 
 <computer_skills_selection>
 "computer_skills" should be the default list, unchanged, for most postings. Only deviate when the posting names specific tools that appear in the full pool but not the default list (e.g. a design-heavy posting mentioning Figma) — in that case swap those pool items in, placing the most posting-relevant skills first, while keeping the list roughly the same length as the default. Never add anything to this list that isn't in the pool, and never drop the skills the posting is actually asking about in favor of ones it isn't.
 </computer_skills_selection>
+
+<technical_skills>
+Set "technical_skills" to true when the target posting is a technical role: data, business intelligence, analytics, data engineering, software engineering, solutions/sales engineering, or a technical product role whose core work is hands-on with data, code, or BI tools. Set it false for customer success, account management, sales, marketing, recruiting, operations generalist, and other non-technical roles, even if they mention some tools. When true, the resume's last section becomes a fixed three-line "Skills" section (computer_skills is then ignored, but still fill it in normally).
+</technical_skills>
 
 Respond in the required JSON format only — no commentary outside the schema fields."""
 
@@ -336,22 +355,44 @@ def _generate_bullets(master, bank, title, company, location, description):
         raise RuntimeError("Claude's response had no text content to parse.")
     result = json.loads(text)
     # Enforced here rather than left to the model: recruiting-focused resumes
-    # always show the GitHub project section (LTX Ventures is dropped from
-    # the experience list in _render_resume_html to make room for it).
+    # always show the Association GM (GitHub) project alongside the standing
+    # Parking Mandate Atlas project.
     if result.get("recruiting_focus"):
         result["optional_block"] = "projects"
     return result
 
 
+def _filename_part(text, max_len):
+    """'Technical Account Manager, II' -> 'TechnicalAccountManagerII' (alnum CamelCase)."""
+    words = re.findall(r"[A-Za-z0-9]+", text or "")
+    return "".join(w[:1].upper() + w[1:] for w in words)[:max_len]
+
+
+def _application_folder_name(job_title, job_company):
+    """Per-application folder name, e.g. '2026-11-13_Yardi_TechnicalAccountManager'.
+
+    File-naming convention: the company/role lives in the FOLDER name; the PDF
+    inside is always the generic '<Name>_Resume.pdf' (see the page <title>),
+    so employers never see their own name in the uploaded filename.
+    """
+    date = datetime.date.today().isoformat()
+    parts = [date, _filename_part(job_company, 30), _filename_part(job_title, 40)]
+    return "_".join(p for p in parts if p)
+
+
 def _render_resume_html(master, tailored, job_title, job_company):
     h = master["header"]
+    # The browser's "Save as PDF" uses <title> as the default filename, so keep
+    # it generic (no company name) — e.g. "Caleb_Pratt_Resume".
+    pdf_basename = "_".join(re.findall(r"[A-Za-z0-9]+", h["name"]) + ["Resume"])
+    folder_name = _application_folder_name(job_title, job_company)
     parts = []
     parts.append(f"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{html.escape(h['name'])} — Resume ({html.escape(job_company)})</title>
+<title>{html.escape(pdf_basename)}</title>
 <style>
   @page {{ size: letter; margin: 0.4in 0.5in; }}
   * {{ box-sizing: border-box; }}
@@ -363,6 +404,9 @@ def _render_resume_html(master, tailored, job_title, job_company):
     display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 14px;
     font-family: -apple-system, sans-serif;
   }}
+  .toolbar .save-hint {{ margin-right: auto; font-size: 12px; color: #555; align-self: center; }}
+  .toolbar .save-hint code {{ background: #f1f3f7; padding: 2px 5px; border-radius: 4px; user-select: all; }}
+  .toolbar button.secondary {{ background: #fff; color: #1F51D6; }}
   .toolbar button {{
     font: inherit; font-size: 13px; padding: 7px 14px; border-radius: 6px;
     border: 1px solid #1F51D6; background: #1F51D6; color: #fff; cursor: pointer;
@@ -392,7 +436,11 @@ def _render_resume_html(master, tailored, job_title, job_company):
 </style>
 </head>
 <body>
-<div class="toolbar"><button onclick="window.print()">Print / Save as PDF</button></div>
+<div class="toolbar">
+  <span class="save-hint">Save as <code>{html.escape(pdf_basename)}.pdf</code> in folder <code id="folder">{html.escape(folder_name)}</code></span>
+  <button class="secondary" onclick="navigator.clipboard.writeText(document.getElementById('folder').textContent).then(()=>{{this.textContent='Copied'}})">Copy folder name</button>
+  <button onclick="window.print()">Print / Save as PDF</button>
+</div>
 <h1>{html.escape(h['name'])}</h1>
 <p class="contact"><a href="mailto:{html.escape(h['email'])}">{html.escape(h['email'])}</a></p>
 <p class="contact phone">{html.escape(h['phone'])}</p>
@@ -400,7 +448,7 @@ def _render_resume_html(master, tailored, job_title, job_company):
 
     recruiting_focus = tailored.get("recruiting_focus")
     for company in master["experience"]:
-        if recruiting_focus and company.get("drop_for_recruiting_focus"):
+        if company.get("excluded") or (recruiting_focus and company.get("drop_for_recruiting_focus")):
             continue
         parts.append('<div class="entry">')
         parts.append(
@@ -437,13 +485,22 @@ def _render_resume_html(master, tailored, job_title, job_company):
         )
 
     optional_block = tailored.get("optional_block", "none")
+    # Association GM shows only when the model picks "projects"; standing
+    # projects (Parking Mandate Atlas) always show, after it.
+    project_entries = []
     if optional_block == "projects":
+        project_entries += master["optional_blocks"]["projects"]["entries"]
+    project_entries += (master.get("standing_projects") or {}).get("entries") or []
+    if project_entries:
         parts.append("<h2>Projects</h2>")
-        for entry in master["optional_blocks"]["projects"]["entries"]:
+        for entry in project_entries:
+            link_html = (
+                f'<div style="font-size:9.6pt">{html.escape(entry["link"])}</div>' if entry.get("link") else ""
+            )
             parts.append(
                 f'<div class="entry"><div class="row"><span>{html.escape(entry["name"])}</span>'
                 f'<span class="dates">{html.escape(entry["date"])}</span></div>'
-                f'<div style="font-size:9.6pt">{html.escape(entry["link"])}</div><ul>'
+                f'{link_html}<ul>'
                 + "".join(f"<li>{html.escape(b)}</li>" for b in entry["bullets"])
                 + "</ul></div>"
             )
@@ -471,6 +528,16 @@ def _render_resume_html(master, tailored, job_title, job_company):
             )
 
     add = master["additional"]
+    if tailored.get("technical_skills") and add.get("technical_skills"):
+        # Technical format: the whole section is just the three skills lines,
+        # retitled "Skills" (no Interests / Work Eligibility).
+        parts.append('<h2>Skills</h2><div class="add-info">')
+        for line in add["technical_skills"]:
+            parts.append(f'<p><b>{html.escape(line["label"])}:</b> {html.escape(line["items"])}</p>')
+        parts.append("</div>")
+        parts.append(f"<!-- tailored for: {html.escape(job_title)} @ {html.escape(job_company)} -->")
+        parts.append("</body></html>")
+        return "\n".join(parts)
     # Only trust model-picked skills that actually exist in the pool (the
     # ground-truth rule applies here too -- never render an invented skill);
     # fall back to the default list if the model returned nothing valid.

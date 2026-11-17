@@ -11,12 +11,35 @@
 # it convincingly without stretching the truth.
 
 by_company:
-  playbook_sports: []
-  revolution_learning: []
-  interscope_geffen: []
+  playbook_sports:
+    - "Engineering team was a mix of in-office engineers and remote teams managing various projects; worked with both in sprint delivery"
+    - "In the Strategic Partnerships role, managed a team of remote engineers on marketing projects (web scraping, CRM development) that Caleb led"
+    - "AI agents built in the CSM/PM role generated feature documentation from Jira tickets"
+    - "Wrote Jira tickets and data model specs as part of the 40+ feature stories"
+    - "Client onboarding included data migrations from clients' legacy systems"
+    - "In the Strategic Partnerships role, enriched scraped lead data and loaded it into HubSpot via the HubSpot API, building custom properties and automated workflows"
+  revolution_learning:
+    - "Built Python-based ETL systems for student progress and standardized testing results reporting"
+    - "Standardized testing data sources for the ETL/reporting work were NWEA MAP and ERB"
+    - "Dashboards refreshed automatically on a weekly schedule"
+    - "Built full-scale analytical dashboard systems using Looker Studio, Google Suite, and Tableau"
+    - "Used SQL heavily via Google Workspace (G Suite-based SQL commands) for data work"
+    - "Handled urgent ad hoc data requests and questions from heads of school and classroom teachers"
+  interscope_geffen:
+    - "Used BigQuery SQL heavily for data work"
+    - "Built visualizations and dashboards in Tableau and Alteryx, plus Python-based ETL systems"
+    - "Delivered ad hoc analyses as a daily task for C-suite executives and artist managers"
+    - "Pulled streaming consumption data via APIs from all major digital streaming platforms (Spotify, Apple Music, Deezer, etc.)"
   neuberger_berman: []
   ltx_ventures: []
 
 # Accomplishments not tied to a specific role above (e.g. side projects,
 # volunteer work, coursework) that could still be relevant to some postings.
-general: []
+general:
+    - "Association GM (github.com/calebcpratt-git/nba-roster-builder): built full-stack with AI-assisted coding in Claude Code, GitHub for version control, and a custom web scraping system feeding its data pipeline"
+    - "Association GM stack: Next.js/React/TypeScript on Supabase (Postgres, auth) and Vercel; Python scrapers across 5 public data sources run by scheduled GitHub Actions with schema-drift detection; Claude API tool-use agent that queries player, contract, and cap data"
+    - "Parking Mandate Atlas (private repo, Sept 2026 - present): Node.js/Express web app comparing municipal off-street parking minimums across 4 cities (Houston, Dallas, Phoenix, Fort Worth), normalizing 270+ provisions of codified municipal code into one JSON schema compatible with Parking Reform Network's dataset"
+    - "Parking Mandate Atlas: one rule engine module served to both the browser and the API calculates required parking spaces for a given development in each city, including tiered, greater-of, and location-based rules (e.g. transit-proximity waivers)"
+    - "Parking Mandate Atlas: built Claude Code skills that find a new city's codified parking table and draft it into the schema, plus a review workbench where a human resolves flagged ambiguities before commit; a validator checks every entry traces to verbatim source code text"
+    - "Parking Mandate Atlas: learning loop turns reviewer corrections into drafting conventions for the next city and generates a scorecard of how often Claude's drafts survive review"
+    - "UT Austin MIS coursework: Advanced Analytics Programming (Python/pandas, ML) and Enterprise Computing electives, plus Data Management (SQL) and Problem Solving & Programming (Python)"
